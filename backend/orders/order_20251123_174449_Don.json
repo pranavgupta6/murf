@@ -1,0 +1,11 @@
+{
+  "drinkType": "latte",
+  "size": "small",
+  "milk": "soy milk",
+  "extras": [
+    "no extras"
+  ],
+  "name": "Don",
+  "timestamp": "2025-11-23T17:44:49.389750",
+  "status": "confirmed"
+}

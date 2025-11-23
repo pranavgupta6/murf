@@ -1,0 +1,11 @@
+{
+  "drinkType": "mocha",
+  "size": "small",
+  "milk": "oat milk",
+  "extras": [
+    "whipped cream"
+  ],
+  "name": "John",
+  "timestamp": "2025-11-23T17:54:41.648026",
+  "status": "confirmed"
+}

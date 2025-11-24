@@ -29,75 +29,128 @@ load_dotenv(".env.local")
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are a friendly and enthusiastic barista working at Murf Coffee Shop, the best coffee shop in town powered by AI. The user is interacting with you via voice.
+            instructions="""You are a supportive and grounded health & wellness voice companion. The user is interacting with you via voice for their daily check-in.
             
-            Your job is to take coffee orders from customers. You need to gather the following information for each order:
-            1. Drink type (e.g., latte, cappuccino, espresso, americano, mocha, flat white, etc.)
-            2. Size (small, medium, or large)
-            3. Milk preference (whole milk, skim milk, oat milk, almond milk, soy milk, or no milk)
-            4. Extras (e.g., extra shot, whipped cream, caramel drizzle, vanilla syrup, chocolate syrup, cinnamon, etc.)
-            5. Customer name for the order
+            Your role is to conduct a brief, supportive daily wellness check-in. You need to gather:
+            1. Mood & Energy - How they're feeling today, their energy level, any stress or concerns
+            2. Daily Intentions - 1-3 practical things they want to accomplish today
+            3. Self-care Goals - Any activities for themselves (exercise, rest, hobbies, etc.)
             
-            Start by greeting the customer warmly and asking what they would like to order.
-            Ask clarifying questions one at a time to gather all the information needed.
-            Be conversational and friendly, making suggestions when appropriate.
-            Once you have all the information, confirm the complete order with the customer.
-            After confirmation, use the save_order tool to finalize the order.
+            Your approach:
+            - Start by greeting them warmly and asking how they're feeling today
+            - Ask about their energy level and if anything is stressing them out
+            - Ask what 1-3 things they'd like to get done today
+            - Ask if there's anything they want to do for themselves
+            - Offer simple, realistic, non-medical advice:
+              * Break large goals into smaller steps
+              * Encourage short breaks or walks
+              * Suggest grounding activities (5-minute walk, deep breathing, stretching)
+            - At the end, recap their mood, energy, and main objectives
+            - Confirm: "Does this sound right?"
+            - Once confirmed, use the save_checkin tool to store the session
             
-            Keep your responses concise and natural, without complex formatting, emojis, or asterisks.
-            Be enthusiastic about coffee and make the customer feel welcome.""",
+            IMPORTANT BOUNDARIES:
+            - You are NOT a medical professional or therapist
+            - Never diagnose conditions or provide medical advice
+            - Keep suggestions practical, small, and actionable
+            - If someone mentions serious distress, gently suggest they speak with a healthcare provider
+            
+            If there are previous check-ins available, reference them naturally:
+            - Compare today's mood/energy to last time
+            - Ask about progress on previous goals
+            - Acknowledge patterns you notice
+            
+            Keep responses conversational, warm, and concise. No complex formatting or emojis.""",
         )
         
-        # Initialize order state
-        self.current_order = {
-            "drinkType": None,
-            "size": None,
-            "milk": None,
-            "extras": [],
-            "name": None
-        }
+        # Load previous check-ins
+        self.previous_checkins = self._load_previous_checkins()
+
+    def _load_previous_checkins(self) -> list:
+        """Load previous check-in data from JSON files"""
+        checkins_dir = Path("checkins")
+        if not checkins_dir.exists():
+            return []
+        
+        checkins = []
+        for file in sorted(checkins_dir.glob("checkin_*.json")):
+            try:
+                with open(file, "r") as f:
+                    checkins.append(json.load(f))
+            except Exception as e:
+                logger.error(f"Error loading {file}: {e}")
+        
+        # Return the 5 most recent check-ins
+        return checkins[-5:] if checkins else []
 
     @function_tool
-    async def save_order(self, context: RunContext, drink_type: str, size: str, milk: str, extras: str, customer_name: str):
-        """Use this tool to save a completed coffee order to a JSON file. Call this ONLY after confirming all order details with the customer.
+    async def save_checkin(
+        self, 
+        context: RunContext, 
+        mood: str, 
+        energy_level: str, 
+        stress_factors: str, 
+        daily_goals: str, 
+        selfcare_activities: str,
+        advice_given: str
+    ):
+        """Use this tool to save a completed wellness check-in to a JSON file. Call this ONLY after confirming all details with the user.
         
         Args:
-            drink_type: The type of drink ordered (e.g., latte, cappuccino, espresso)
-            size: The size of the drink (small, medium, or large)
-            milk: The type of milk (whole, skim, oat, almond, soy, or none)
-            extras: Comma-separated list of extras (e.g., extra shot, whipped cream, vanilla syrup)
-            customer_name: The customer's name for the order
+            mood: Description of the user's current mood (e.g., positive, neutral, low, anxious, calm)
+            energy_level: The user's energy level (e.g., high, medium, low, exhausted, energized)
+            stress_factors: Any stress or concerns mentioned (or "none" if not applicable)
+            daily_goals: Comma-separated list of 1-3 things they want to accomplish today
+            selfcare_activities: Self-care or personal activities they plan to do (or "none" if not mentioned)
+            advice_given: Brief summary of the advice or suggestions you provided
         """
         
-        logger.info(f"Saving order for {customer_name}")
+        logger.info(f"Saving wellness check-in")
         
-        # Parse extras into a list
-        extras_list = [extra.strip() for extra in extras.split(",") if extra.strip()] if extras else []
+        # Parse goals and activities into lists
+        goals_list = [goal.strip() for goal in daily_goals.split(",") if goal.strip()]
+        activities_list = [activity.strip() for activity in selfcare_activities.split(",") if activity.strip()] if selfcare_activities.lower() != "none" else []
         
-        # Create order object
-        order = {
-            "drinkType": drink_type,
-            "size": size,
-            "milk": milk,
-            "extras": extras_list,
-            "name": customer_name,
+        # Create check-in object
+        checkin = {
+            "mood": mood,
+            "energyLevel": energy_level,
+            "stressFactors": stress_factors,
+            "dailyGoals": goals_list,
+            "selfcareActivities": activities_list,
+            "adviceGiven": advice_given,
             "timestamp": datetime.now().isoformat(),
-            "status": "confirmed"
+            "date": datetime.now().strftime("%Y-%m-%d")
         }
         
         # Save to JSON file
-        orders_dir = Path("orders")
-        orders_dir.mkdir(exist_ok=True)
+        checkins_dir = Path("checkins")
+        checkins_dir.mkdir(exist_ok=True)
         
-        order_filename = f"order_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{customer_name.replace(' ', '_')}.json"
-        order_path = orders_dir / order_filename
+        checkin_filename = f"checkin_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        checkin_path = checkins_dir / checkin_filename
         
-        with open(order_path, "w") as f:
-            json.dump(order, f, indent=2)
+        with open(checkin_path, "w") as f:
+            json.dump(checkin, f, indent=2)
         
-        logger.info(f"Order saved to {order_path}")
+        logger.info(f"Check-in saved to {checkin_path}")
         
-        return f"Order saved successfully! Your {size} {drink_type} with {milk} will be ready soon, {customer_name}. Order ID: {order_filename}"
+        return f"Check-in saved successfully! I've recorded your mood, energy level, and goals for today. Take care and remember to be kind to yourself!"
+
+    async def get_context(self) -> str:
+        """Get context from previous check-ins to inform the conversation"""
+        if not self.previous_checkins:
+            return "This is the first check-in session."
+        
+        last_checkin = self.previous_checkins[-1]
+        context = f"Previous check-in from {last_checkin.get('date', 'recently')}: "
+        context += f"Mood was {last_checkin.get('mood', 'not recorded')}, "
+        context += f"energy was {last_checkin.get('energyLevel', 'not recorded')}. "
+        
+        if last_checkin.get('dailyGoals'):
+            context += f"Goals included: {', '.join(last_checkin['dailyGoals'][:2])}."
+        
+        return context
 
 
 def prewarm(proc: JobProcess):

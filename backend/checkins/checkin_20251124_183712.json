@@ -1,0 +1,16 @@
+{
+  "mood": "Good",
+  "energyLevel": "6 out of 10, a bit sleepy",
+  "stressFactors": "None",
+  "dailyGoals": [
+    "Study",
+    "play video games",
+    "play a sport"
+  ],
+  "selfcareActivities": [
+    "Relax or read a book"
+  ],
+  "adviceGiven": "Suggested a short break for reading to recharge between studying and sports, given the sleepiness.",
+  "timestamp": "2025-11-24T18:37:12.005287",
+  "date": "2025-11-24"
+}

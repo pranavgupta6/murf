@@ -1,7 +1,7 @@
 import logging
 import json
 from pathlib import Path
-from datetime import datetime
+from typing import Annotated
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -25,132 +25,200 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
+# Load tutor content
+def load_tutor_content():
+    """Load the tutor content from JSON file"""
+    content_path = Path("shared-data/day4_tutor_content.json")
+    with open(content_path, "r") as f:
+        return json.load(f)
 
-class Assistant(Agent):
+TUTOR_CONTENT = load_tutor_content()
+
+
+class RouterAgent(Agent):
+    """Initial agent that greets user and routes to the appropriate learning mode"""
+    
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are a supportive and grounded health & wellness voice companion. The user is interacting with you via voice for their daily check-in.
-            
-            Your role is to conduct a brief, supportive daily wellness check-in. You need to gather:
-            1. Mood & Energy - How they're feeling today, their energy level, any stress or concerns
-            2. Daily Intentions - 1-3 practical things they want to accomplish today
-            3. Self-care Goals - Any activities for themselves (exercise, rest, hobbies, etc.)
-            
-            Your approach:
-            - Start by greeting them warmly and asking how they're feeling today
-            - Ask about their energy level and if anything is stressing them out
-            - Ask what 1-3 things they'd like to get done today
-            - Ask if there's anything they want to do for themselves
-            - Offer simple, realistic, non-medical advice:
-              * Break large goals into smaller steps
-              * Encourage short breaks or walks
-              * Suggest grounding activities (5-minute walk, deep breathing, stretching)
-            - At the end, recap their mood, energy, and main objectives
-            - Confirm: "Does this sound right?"
-            - Once confirmed, use the save_checkin tool to store the session
-            
-            IMPORTANT BOUNDARIES:
-            - You are NOT a medical professional or therapist
-            - Never diagnose conditions or provide medical advice
-            - Keep suggestions practical, small, and actionable
-            - If someone mentions serious distress, gently suggest they speak with a healthcare provider
-            
-            If there are previous check-ins available, reference them naturally:
-            - Compare today's mood/energy to last time
-            - Ask about progress on previous goals
-            - Acknowledge patterns you notice
-            
-            Keep responses conversational, warm, and concise. No complex formatting or emojis.""",
-        )
-        
-        # Load previous check-ins
-        self.previous_checkins = self._load_previous_checkins()
+            instructions="""You are a friendly tutor assistant that helps students learn programming concepts through active recall.
 
-    def _load_previous_checkins(self) -> list:
-        """Load previous check-in data from JSON files"""
-        checkins_dir = Path("checkins")
-        if not checkins_dir.exists():
-            return []
-        
-        checkins = []
-        for file in sorted(checkins_dir.glob("checkin_*.json")):
-            try:
-                with open(file, "r") as f:
-                    checkins.append(json.load(f))
-            except Exception as e:
-                logger.error(f"Error loading {file}: {e}")
-        
-        # Return the 5 most recent check-ins
-        return checkins[-5:] if checkins else []
+Your role is to:
+1. Greet the student warmly
+2. Explain that you have three learning modes available:
+   - LEARN mode: I'll explain concepts to you
+   - QUIZ mode: I'll ask you questions to test your knowledge
+   - TEACH-BACK mode: You explain concepts back to me and I'll give feedback
+
+3. Ask which mode they'd like to start with
+
+Available topics: variables, loops, functions, and conditionals.
+
+Once they choose a mode, use the appropriate handoff tool to transfer them to that agent.
+
+Keep your greeting brief and conversational.""",
+        )
 
     @function_tool
-    async def save_checkin(
-        self, 
-        context: RunContext, 
-        mood: str, 
-        energy_level: str, 
-        stress_factors: str, 
-        daily_goals: str, 
-        selfcare_activities: str,
-        advice_given: str
-    ):
-        """Use this tool to save a completed wellness check-in to a JSON file. Call this ONLY after confirming all details with the user.
-        
-        Args:
-            mood: Description of the user's current mood (e.g., positive, neutral, low, anxious, calm)
-            energy_level: The user's energy level (e.g., high, medium, low, exhausted, energized)
-            stress_factors: Any stress or concerns mentioned (or "none" if not applicable)
-            daily_goals: Comma-separated list of 1-3 things they want to accomplish today
-            selfcare_activities: Self-care or personal activities they plan to do (or "none" if not mentioned)
-            advice_given: Brief summary of the advice or suggestions you provided
-        """
-        
-        logger.info(f"Saving wellness check-in")
-        
-        # Parse goals and activities into lists
-        goals_list = [goal.strip() for goal in daily_goals.split(",") if goal.strip()]
-        activities_list = [activity.strip() for activity in selfcare_activities.split(",") if activity.strip()] if selfcare_activities.lower() != "none" else []
-        
-        # Create check-in object
-        checkin = {
-            "mood": mood,
-            "energyLevel": energy_level,
-            "stressFactors": stress_factors,
-            "dailyGoals": goals_list,
-            "selfcareActivities": activities_list,
-            "adviceGiven": advice_given,
-            "timestamp": datetime.now().isoformat(),
-            "date": datetime.now().strftime("%Y-%m-%d")
-        }
-        
-        # Save to JSON file
-        checkins_dir = Path("checkins")
-        checkins_dir.mkdir(exist_ok=True)
-        
-        checkin_filename = f"checkin_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        checkin_path = checkins_dir / checkin_filename
-        
-        with open(checkin_path, "w") as f:
-            json.dump(checkin, f, indent=2)
-        
-        logger.info(f"Check-in saved to {checkin_path}")
-        
-        return f"Check-in saved successfully! I've recorded your mood, energy level, and goals for today. Take care and remember to be kind to yourself!"
+    async def transfer_to_learn_mode(self, context: RunContext):
+        """Transfer the student to Learn mode where concepts are explained"""
+        logger.info("Transferring to Learn mode")
+        return LearnAgent(), "Transferring you to Learn mode..."
 
-    async def get_context(self) -> str:
-        """Get context from previous check-ins to inform the conversation"""
-        if not self.previous_checkins:
-            return "This is the first check-in session."
+    @function_tool
+    async def transfer_to_quiz_mode(self, context: RunContext):
+        """Transfer the student to Quiz mode where they answer questions"""
+        logger.info("Transferring to Quiz mode")
+        return QuizAgent(), "Transferring you to Quiz mode..."
+
+    @function_tool
+    async def transfer_to_teach_back_mode(self, context: RunContext):
+        """Transfer the student to Teach-Back mode where they explain concepts"""
+        logger.info("Transferring to Teach-Back mode")
+        return TeachBackAgent(), "Transferring you to Teach-Back mode..."
+
+
+class LearnAgent(Agent):
+    """Agent that explains concepts to the student (Matthew voice)"""
+    
+    def __init__(self) -> None:
+        # Create content reference for instructions
+        concepts_list = "\n".join([f"- {c['title']}: {c['summary']}" for c in TUTOR_CONTENT])
         
-        last_checkin = self.previous_checkins[-1]
-        context = f"Previous check-in from {last_checkin.get('date', 'recently')}: "
-        context += f"Mood was {last_checkin.get('mood', 'not recorded')}, "
-        context += f"energy was {last_checkin.get('energyLevel', 'not recorded')}. "
+        super().__init__(
+            instructions=f"""You are Matthew, a patient and clear teacher in LEARN mode. Your job is to explain programming concepts clearly.
+
+Available concepts:
+{concepts_list}
+
+Your approach:
+1. When the student arrives, welcome them to Learn mode
+2. Ask which concept they'd like to learn about (variables, loops, functions, or conditionals)
+3. Explain the concept clearly using the summary provided
+4. Use simple examples and analogies
+5. Check if they have questions
+6. Offer to explain another concept or switch modes
+
+If the student wants to switch modes:
+- Use transfer_to_quiz_mode to switch to Quiz mode
+- Use transfer_to_teach_back_mode to switch to Teach-Back mode
+
+Keep explanations conversational and easy to understand. Break complex ideas into simple parts.""",
+            tts=murf.TTS(
+                voice="en-US-matthew",
+                style="Conversation",
+                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+                text_pacing=True
+            ),
+        )
+
+    @function_tool
+    async def transfer_to_quiz_mode(self, context: RunContext):
+        """Transfer to Quiz mode"""
+        logger.info("Transferring from Learn to Quiz mode")
+        return QuizAgent(), "Switching to Quiz mode..."
+
+    @function_tool
+    async def transfer_to_teach_back_mode(self, context: RunContext):
+        """Transfer to Teach-Back mode"""
+        logger.info("Transferring from Learn to Teach-Back mode")
+        return TeachBackAgent(), "Switching to Teach-Back mode..."
+
+
+class QuizAgent(Agent):
+    """Agent that quizzes the student (Alicia voice)"""
+    
+    def __init__(self) -> None:
+        # Create questions reference
+        questions_list = "\n".join([f"- {c['title']}: {c['sample_question']}" for c in TUTOR_CONTENT])
         
-        if last_checkin.get('dailyGoals'):
-            context += f"Goals included: {', '.join(last_checkin['dailyGoals'][:2])}."
+        super().__init__(
+            instructions=f"""You are Alicia, an encouraging quiz master in QUIZ mode. Your job is to test the student's knowledge.
+
+Available quiz topics:
+{questions_list}
+
+Your approach:
+1. When the student arrives, welcome them to Quiz mode
+2. Ask which concept they'd like to be quizzed on
+3. Ask the sample question for that concept
+4. Listen to their answer
+5. Provide feedback: point out what they got right and gently correct any mistakes
+6. Offer to quiz them on another concept or switch modes
+
+If the student wants to switch modes:
+- Use transfer_to_learn_mode to switch to Learn mode
+- Use transfer_to_teach_back_mode to switch to Teach-Back mode
+
+Be encouraging and supportive. Celebrate correct answers and help them understand mistakes.""",
+            tts=murf.TTS(
+                voice="en-US-alicia",
+                style="Conversation",
+                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+                text_pacing=True
+            ),
+        )
+
+    @function_tool
+    async def transfer_to_learn_mode(self, context: RunContext):
+        """Transfer to Learn mode"""
+        logger.info("Transferring from Quiz to Learn mode")
+        return LearnAgent(), "Switching to Learn mode..."
+
+    @function_tool
+    async def transfer_to_teach_back_mode(self, context: RunContext):
+        """Transfer to Teach-Back mode"""
+        logger.info("Transferring from Quiz to Teach-Back mode")
+        return TeachBackAgent(), "Switching to Teach-Back mode..."
+
+
+class TeachBackAgent(Agent):
+    """Agent that asks student to explain concepts back (Ken voice)"""
+    
+    def __init__(self) -> None:
+        concepts_list = "\n".join([f"- {c['title']}" for c in TUTOR_CONTENT])
         
-        return context
+        super().__init__(
+            instructions=f"""You are Ken, a thoughtful evaluator in TEACH-BACK mode. The best way to learn is to teach!
+
+Available concepts:
+{concepts_list}
+
+Your approach:
+1. When the student arrives, welcome them to Teach-Back mode
+2. Explain that they'll teach YOU a concept - this is how they'll truly master it
+3. Ask which concept they'd like to explain (variables, loops, functions, or conditionals)
+4. Listen carefully to their explanation
+5. Provide qualitative feedback:
+   - What did they explain well?
+   - What key points did they miss?
+   - How could their explanation be clearer?
+6. Give a rating (Excellent/Good/Needs Work)
+7. Offer to hear another concept or switch modes
+
+If the student wants to switch modes:
+- Use transfer_to_learn_mode to switch to Learn mode
+- Use transfer_to_quiz_mode to switch to Quiz mode
+
+Be constructive and specific in your feedback. Help them become better teachers (and learners).""",
+            tts=murf.TTS(
+                voice="en-US-ken",
+                style="Conversation",
+                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+                text_pacing=True
+            ),
+        )
+
+    @function_tool
+    async def transfer_to_learn_mode(self, context: RunContext):
+        """Transfer to Learn mode"""
+        logger.info("Transferring from Teach-Back to Learn mode")
+        return LearnAgent(), "Switching to Learn mode..."
+
+    @function_tool
+    async def transfer_to_quiz_mode(self, context: RunContext):
+        """Transfer to Quiz mode"""
+        logger.info("Transferring from Teach-Back to Quiz mode")
+        return QuizAgent(), "Switching to Quiz mode..."
 
 
 def prewarm(proc: JobProcess):
@@ -226,7 +294,7 @@ async def entrypoint(ctx: JobContext):
 
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=Assistant(),
+        agent=RouterAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             # For telephony applications, use `BVCTelephony` for best results

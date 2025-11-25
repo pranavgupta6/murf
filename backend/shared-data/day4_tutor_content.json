@@ -1,0 +1,26 @@
+[
+  {
+    "id": "variables",
+    "title": "Variables",
+    "summary": "Variables are like labeled containers that store values in programming. Think of them as named boxes where you can put information and retrieve it later. For example, you might store a person's age in a variable called 'age' with the value 25. Variables make your code reusable and easier to read because you can refer to the same value throughout your program by its name instead of repeating the value everywhere.",
+    "sample_question": "What is a variable and why is it useful in programming?"
+  },
+  {
+    "id": "loops",
+    "title": "Loops",
+    "summary": "Loops allow you to repeat a block of code multiple times without writing the same code over and over. There are two main types: 'for loops' which run a specific number of times (like counting from 1 to 10), and 'while loops' which keep running as long as a condition is true (like 'while you're hungry, keep eating'). Loops are essential for processing lists, repeating tasks, and handling repetitive operations efficiently.",
+    "sample_question": "Explain the difference between a for loop and a while loop, and give an example of when you'd use each."
+  },
+  {
+    "id": "functions",
+    "title": "Functions",
+    "summary": "Functions are reusable blocks of code that perform a specific task. They help you organize your code by breaking it into smaller, manageable pieces. A function takes inputs (called parameters), does something with them, and can return an output. For example, you might create a function called 'calculate_area' that takes length and width as inputs and returns the area. Functions make your code cleaner, easier to test, and prevent you from repeating the same code multiple times.",
+    "sample_question": "What is a function and what are the benefits of using functions in your code?"
+  },
+  {
+    "id": "conditionals",
+    "title": "Conditionals",
+    "summary": "Conditionals are decision-making structures in programming that let your code choose different paths based on whether conditions are true or false. The most common conditional is the 'if-else' statement. For example, 'if it's raining, bring an umbrella, else wear sunglasses'. Conditionals allow your programs to be flexible and respond differently to different situations, making them much more powerful than code that just runs the same way every time.",
+    "sample_question": "How do conditional statements work and why are they important for making programs dynamic?"
+  }
+]

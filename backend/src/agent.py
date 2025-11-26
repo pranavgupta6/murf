@@ -2,6 +2,7 @@ import logging
 import json
 from pathlib import Path
 from typing import Annotated
+from datetime import datetime
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -25,200 +26,229 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-# Load tutor content
-def load_tutor_content():
-    """Load the tutor content from JSON file"""
-    content_path = Path("shared-data/day4_tutor_content.json")
+# Load company data for SDR
+def load_company_data():
+    """Load the company FAQ and information from JSON file"""
+    content_path = Path("shared-data/razorpay_company_data.json")
     with open(content_path, "r") as f:
         return json.load(f)
 
-TUTOR_CONTENT = load_tutor_content()
+COMPANY_DATA = load_company_data()
 
 
-class RouterAgent(Agent):
-    """Initial agent that greets user and routes to the appropriate learning mode"""
+class SDRAgent(Agent):
+    """Sales Development Representative agent that answers FAQ and captures leads"""
     
     def __init__(self) -> None:
-        super().__init__(
-            instructions="""You are a friendly tutor assistant that helps students learn programming concepts through active recall.
-
-Your role is to:
-1. Greet the student warmly
-2. Explain that you have three learning modes available:
-   - LEARN mode: I'll explain concepts to you
-   - QUIZ mode: I'll ask you questions to test your knowledge
-   - TEACH-BACK mode: You explain concepts back to me and I'll give feedback
-
-3. Ask which mode they'd like to start with
-
-Available topics: variables, loops, functions, and conditionals.
-
-Once they choose a mode, use the appropriate handoff tool to transfer them to that agent.
-
-Keep your greeting brief and conversational.""",
-        )
-
-    @function_tool
-    async def transfer_to_learn_mode(self, context: RunContext):
-        """Transfer the student to Learn mode where concepts are explained"""
-        logger.info("Transferring to Learn mode")
-        return LearnAgent(), "Transferring you to Learn mode..."
-
-    @function_tool
-    async def transfer_to_quiz_mode(self, context: RunContext):
-        """Transfer the student to Quiz mode where they answer questions"""
-        logger.info("Transferring to Quiz mode")
-        return QuizAgent(), "Transferring you to Quiz mode..."
-
-    @function_tool
-    async def transfer_to_teach_back_mode(self, context: RunContext):
-        """Transfer the student to Teach-Back mode where they explain concepts"""
-        logger.info("Transferring to Teach-Back mode")
-        return TeachBackAgent(), "Transferring you to Teach-Back mode..."
-
-
-class LearnAgent(Agent):
-    """Agent that explains concepts to the student (Matthew voice)"""
-    
-    def __init__(self) -> None:
-        # Create content reference for instructions
-        concepts_list = "\n".join([f"- {c['title']}: {c['summary']}" for c in TUTOR_CONTENT])
+        # Build FAQ reference for the agent
+        faq_list = "\n".join([
+            f"Q: {faq['question']}\nA: {faq['answer']}" 
+            for faq in COMPANY_DATA['faqs']
+        ])
+        
+        company_name = COMPANY_DATA['company']['name']
+        company_desc = COMPANY_DATA['company']['description']
         
         super().__init__(
-            instructions=f"""You are Matthew, a patient and clear teacher in LEARN mode. Your job is to explain programming concepts clearly.
+            instructions=f"""You are Arjun, a friendly and professional Sales Development Representative (SDR) for {company_name}.
 
-Available concepts:
-{concepts_list}
+ABOUT {company_name.upper()}:
+{company_desc}
 
-Your approach:
-1. When the student arrives, welcome them to Learn mode
-2. Ask which concept they'd like to learn about (variables, loops, functions, or conditionals)
-3. Explain the concept clearly using the summary provided
-4. Use simple examples and analogies
-5. Check if they have questions
-6. Offer to explain another concept or switch modes
+YOUR ROLE:
+1. **Warm Greeting**: Start with a warm, professional greeting. Introduce yourself as Arjun from {company_name}. Example: "Hi! I'm Arjun from Razorpay. How are you doing today?"
 
-If the student wants to switch modes:
-- Use transfer_to_quiz_mode to switch to Quiz mode
-- Use transfer_to_teach_back_mode to switch to Teach-Back mode
+2. **Discovery**: Ask open-ended questions to understand:
+   - What brought them here today?
+   - What they're currently working on or what challenges they face
+   - Their business needs and goals
 
-Keep explanations conversational and easy to understand. Break complex ideas into simple parts.""",
-            tts=murf.TTS(
-                voice="en-US-matthew",
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
+3. **Answer Questions**: Use the FAQ knowledge below to answer their questions accurately. If asked about something not in the FAQ, politely say you'll need to connect them with a specialist.
+
+FAQ KNOWLEDGE BASE:
+{faq_list}
+
+4. **Lead Qualification**: Throughout the conversation, naturally gather:
+   - Their name
+   - Company name
+   - Email address
+   - Their role/position
+   - What they want to use {company_name} for (use case)
+   - Their team size
+   - Their timeline (are they looking to start now, soon, or just exploring?)
+
+Use the function tools to save each piece of information as you collect it.
+
+5. **Closing**: When they indicate they're done (e.g., "That's all", "I'm done", "Thanks, bye"), use the end_call_with_summary tool to:
+   - Thank them for their time
+   - Provide a brief verbal summary of what you learned
+   - Let them know someone will follow up
+   - Save the complete lead information
+
+CONVERSATION STYLE:
+- Be conversational and natural, not robotic
+- Listen actively and show genuine interest
+- Don't ask all questions at once - weave them naturally into the conversation
+- Be helpful and focus on understanding their needs
+- Stay professional but friendly
+
+Remember: You're here to help them understand {company_name} and determine if it's a good fit for their needs.""",
         )
-
-    @function_tool
-    async def transfer_to_quiz_mode(self, context: RunContext):
-        """Transfer to Quiz mode"""
-        logger.info("Transferring from Learn to Quiz mode")
-        return QuizAgent(), "Switching to Quiz mode..."
-
-    @function_tool
-    async def transfer_to_teach_back_mode(self, context: RunContext):
-        """Transfer to Teach-Back mode"""
-        logger.info("Transferring from Learn to Teach-Back mode")
-        return TeachBackAgent(), "Switching to Teach-Back mode..."
-
-
-class QuizAgent(Agent):
-    """Agent that quizzes the student (Alicia voice)"""
-    
-    def __init__(self) -> None:
-        # Create questions reference
-        questions_list = "\n".join([f"- {c['title']}: {c['sample_question']}" for c in TUTOR_CONTENT])
         
-        super().__init__(
-            instructions=f"""You are Alicia, an encouraging quiz master in QUIZ mode. Your job is to test the student's knowledge.
-
-Available quiz topics:
-{questions_list}
-
-Your approach:
-1. When the student arrives, welcome them to Quiz mode
-2. Ask which concept they'd like to be quizzed on
-3. Ask the sample question for that concept
-4. Listen to their answer
-5. Provide feedback: point out what they got right and gently correct any mistakes
-6. Offer to quiz them on another concept or switch modes
-
-If the student wants to switch modes:
-- Use transfer_to_learn_mode to switch to Learn mode
-- Use transfer_to_teach_back_mode to switch to Teach-Back mode
-
-Be encouraging and supportive. Celebrate correct answers and help them understand mistakes.""",
-            tts=murf.TTS(
-                voice="en-US-alicia",
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
-        )
+        # Initialize lead data storage
+        self.lead_data = {
+            "name": None,
+            "company": None,
+            "email": None,
+            "role": None,
+            "use_case": None,
+            "team_size": None,
+            "timeline": None,
+            "timestamp": None,
+            "conversation_notes": []
+        }
 
     @function_tool
-    async def transfer_to_learn_mode(self, context: RunContext):
-        """Transfer to Learn mode"""
-        logger.info("Transferring from Quiz to Learn mode")
-        return LearnAgent(), "Switching to Learn mode..."
+    async def save_lead_name(
+        self, 
+        name: Annotated[str, "The lead's full name"],
+        context: RunContext
+    ):
+        """Save the lead's name"""
+        self.lead_data["name"] = name
+        logger.info(f"Saved lead name: {name}")
+        return f"Saved name: {name}"
 
     @function_tool
-    async def transfer_to_teach_back_mode(self, context: RunContext):
-        """Transfer to Teach-Back mode"""
-        logger.info("Transferring from Quiz to Teach-Back mode")
-        return TeachBackAgent(), "Switching to Teach-Back mode..."
+    async def save_lead_company(
+        self, 
+        company: Annotated[str, "The lead's company name"],
+        context: RunContext
+    ):
+        """Save the lead's company name"""
+        self.lead_data["company"] = company
+        logger.info(f"Saved lead company: {company}")
+        return f"Saved company: {company}"
 
+    @function_tool
+    async def save_lead_email(
+        self, 
+        email: Annotated[str, "The lead's email address"],
+        context: RunContext
+    ):
+        """Save the lead's email address"""
+        self.lead_data["email"] = email
+        logger.info(f"Saved lead email: {email}")
+        return f"Saved email: {email}"
 
-class TeachBackAgent(Agent):
-    """Agent that asks student to explain concepts back (Ken voice)"""
-    
-    def __init__(self) -> None:
-        concepts_list = "\n".join([f"- {c['title']}" for c in TUTOR_CONTENT])
+    @function_tool
+    async def save_lead_role(
+        self, 
+        role: Annotated[str, "The lead's job title or role"],
+        context: RunContext
+    ):
+        """Save the lead's role or job title"""
+        self.lead_data["role"] = role
+        logger.info(f"Saved lead role: {role}")
+        return f"Saved role: {role}"
+
+    @function_tool
+    async def save_lead_use_case(
+        self, 
+        use_case: Annotated[str, "What the lead wants to use the product for"],
+        context: RunContext
+    ):
+        """Save the lead's use case or what they want to use the product for"""
+        self.lead_data["use_case"] = use_case
+        logger.info(f"Saved lead use case: {use_case}")
+        return f"Saved use case: {use_case}"
+
+    @function_tool
+    async def save_lead_team_size(
+        self, 
+        team_size: Annotated[str, "The size of the lead's team or company"],
+        context: RunContext
+    ):
+        """Save the lead's team size"""
+        self.lead_data["team_size"] = team_size
+        logger.info(f"Saved lead team size: {team_size}")
+        return f"Saved team size: {team_size}"
+
+    @function_tool
+    async def save_lead_timeline(
+        self, 
+        timeline: Annotated[str, "When the lead wants to get started (now/soon/later/exploring)"],
+        context: RunContext
+    ):
+        """Save the lead's timeline for getting started"""
+        self.lead_data["timeline"] = timeline
+        logger.info(f"Saved lead timeline: {timeline}")
+        return f"Saved timeline: {timeline}"
+
+    @function_tool
+    async def add_conversation_note(
+        self, 
+        note: Annotated[str, "Important point or insight from the conversation"],
+        context: RunContext
+    ):
+        """Add a note about something important mentioned in the conversation"""
+        self.lead_data["conversation_notes"].append(note)
+        logger.info(f"Added conversation note: {note}")
+        return f"Note saved"
+
+    @function_tool
+    async def search_faq(
+        self, 
+        question: Annotated[str, "The user's question to search for in the FAQ"],
+        context: RunContext
+    ):
+        """Search the FAQ knowledge base for relevant answers"""
+        # Simple keyword search
+        question_lower = question.lower()
+        relevant_faqs = []
         
-        super().__init__(
-            instructions=f"""You are Ken, a thoughtful evaluator in TEACH-BACK mode. The best way to learn is to teach!
-
-Available concepts:
-{concepts_list}
-
-Your approach:
-1. When the student arrives, welcome them to Teach-Back mode
-2. Explain that they'll teach YOU a concept - this is how they'll truly master it
-3. Ask which concept they'd like to explain (variables, loops, functions, or conditionals)
-4. Listen carefully to their explanation
-5. Provide qualitative feedback:
-   - What did they explain well?
-   - What key points did they miss?
-   - How could their explanation be clearer?
-6. Give a rating (Excellent/Good/Needs Work)
-7. Offer to hear another concept or switch modes
-
-If the student wants to switch modes:
-- Use transfer_to_learn_mode to switch to Learn mode
-- Use transfer_to_quiz_mode to switch to Quiz mode
-
-Be constructive and specific in your feedback. Help them become better teachers (and learners).""",
-            tts=murf.TTS(
-                voice="en-US-ken",
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
-        )
+        for faq in COMPANY_DATA['faqs']:
+            if (question_lower in faq['question'].lower() or 
+                question_lower in faq['answer'].lower() or
+                any(word in faq['question'].lower() or word in faq['answer'].lower() 
+                    for word in question_lower.split() if len(word) > 3)):
+                relevant_faqs.append(f"Q: {faq['question']}\nA: {faq['answer']}")
+        
+        if relevant_faqs:
+            return "\n\n".join(relevant_faqs[:3])  # Return top 3 matches
+        else:
+            return "No specific FAQ found for this question. Use general knowledge from the instructions."
 
     @function_tool
-    async def transfer_to_learn_mode(self, context: RunContext):
-        """Transfer to Learn mode"""
-        logger.info("Transferring from Teach-Back to Learn mode")
-        return LearnAgent(), "Switching to Learn mode..."
+    async def end_call_with_summary(self, context: RunContext):
+        """End the call and save the complete lead summary. Use this when the user indicates they're done."""
+        # Add timestamp
+        self.lead_data["timestamp"] = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Save lead to JSON file
+        lead_filename = f"lead_{self.lead_data['timestamp']}_{self.lead_data.get('name', 'Unknown').replace(' ', '_')}.json"
+        lead_path = Path("leads") / lead_filename
+        
+        with open(lead_path, "w") as f:
+            json.dump(self.lead_data, f, indent=2)
+        
+        logger.info(f"Lead saved to {lead_path}")
+        
+        # Create verbal summary
+        name = self.lead_data.get('name', 'the prospect')
+        company = self.lead_data.get('company', 'their company')
+        use_case = self.lead_data.get('use_case', 'their needs')
+        timeline = self.lead_data.get('timeline', 'their timeline')
+        
+        summary = f"""Thank you so much for your time today, {name}! Let me quickly recap what we discussed:
 
-    @function_tool
-    async def transfer_to_quiz_mode(self, context: RunContext):
-        """Transfer to Quiz mode"""
-        logger.info("Transferring from Teach-Back to Quiz mode")
-        return QuizAgent(), "Switching to Quiz mode..."
+You're from {company}, and you're interested in using Razorpay for {use_case}. Based on our conversation, your timeline is {timeline}.
+
+I've captured all your details, and someone from our team will reach out to you shortly at the email address you provided. We're excited about the possibility of working with you!
+
+Is there anything else I can help you with before we wrap up?"""
+        
+        return summary
 
 
 def prewarm(proc: JobProcess):
@@ -294,7 +324,7 @@ async def entrypoint(ctx: JobContext):
 
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=RouterAgent(),
+        agent=SDRAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             # For telephony applications, use `BVCTelephony` for best results

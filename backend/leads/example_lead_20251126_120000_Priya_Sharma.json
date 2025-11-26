@@ -1,0 +1,17 @@
+{
+  "name": "Priya Sharma",
+  "company": "TechStartup India Pvt Ltd",
+  "email": "priya.sharma@techstartup.in",
+  "role": "Chief Technology Officer",
+  "use_case": "Accept subscription payments for SaaS platform and manage recurring billing",
+  "team_size": "25 employees",
+  "timeline": "Looking to integrate within the next month",
+  "timestamp": "20251126_120000",
+  "conversation_notes": [
+    "Currently using PayU but unhappy with API documentation",
+    "Processing around 2000 transactions per month",
+    "Interested in instant settlement feature",
+    "Asked about international payment support",
+    "Wants to integrate with their existing Node.js backend"
+  ]
+}

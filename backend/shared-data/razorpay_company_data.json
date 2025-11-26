@@ -1,0 +1,133 @@
+{
+  "company": {
+    "name": "Razorpay",
+    "tagline": "The only payments solution in India you'll ever need",
+    "description": "Razorpay is a leading Indian fintech company that provides payment gateway solutions, business banking, and financial services for businesses of all sizes. Founded in 2014, Razorpay enables over 10 million businesses to accept, process, and disburse payments with its product suite.",
+    "founded": "2014",
+    "headquarters": "Bengaluru, India",
+    "website": "https://razorpay.com"
+  },
+  "products": [
+    {
+      "name": "Payment Gateway",
+      "description": "Accept payments from customers via 100+ payment modes including Credit/Debit Cards, NetBanking, UPI, and Popular Wallets"
+    },
+    {
+      "name": "Payment Links",
+      "description": "Share payment links via SMS, email, messenger, chatbot etc. and get paid immediately without a website"
+    },
+    {
+      "name": "Payment Pages",
+      "description": "Create and customize payment pages with no coding required"
+    },
+    {
+      "name": "Subscriptions",
+      "description": "Set up recurring payments and manage subscriptions with automated billing"
+    },
+    {
+      "name": "Smart Collect",
+      "description": "Automate bank transfer reconciliation with Virtual Accounts"
+    },
+    {
+      "name": "Route",
+      "description": "Split payments and route them to multiple accounts automatically"
+    },
+    {
+      "name": "RazorpayX",
+      "description": "Complete business banking solution for startups and growing businesses"
+    }
+  ],
+  "faqs": [
+    {
+      "question": "What does Razorpay do?",
+      "answer": "Razorpay is a comprehensive payments and banking platform for businesses in India. We help businesses accept payments online and offline, manage cash flow, access credit, and handle all their banking needs from a single platform.",
+      "category": "general"
+    },
+    {
+      "question": "Who is Razorpay for?",
+      "answer": "Razorpay is designed for businesses of all sizes - from freelancers and small businesses to large enterprises. Whether you're an e-commerce store, SaaS company, educational institution, or any business that needs to accept payments, Razorpay can help you.",
+      "category": "general"
+    },
+    {
+      "question": "What payment methods does Razorpay support?",
+      "answer": "Razorpay supports 100+ payment methods including all major credit and debit cards, NetBanking from 50+ banks, UPI, popular wallets like Paytm, PhonePe, Google Pay, and international payment methods like Apple Pay and Google Pay.",
+      "category": "product"
+    },
+    {
+      "question": "Do you have a free tier?",
+      "answer": "Razorpay doesn't have a traditional free tier, but there are no setup fees or annual maintenance charges. You only pay a small percentage on successful transactions. This means if you don't process any payments, you don't pay anything.",
+      "category": "pricing"
+    },
+    {
+      "question": "What are your pricing details?",
+      "answer": "Razorpay charges a transaction fee of 2% for domestic transactions with no setup fees or annual charges. For international transactions, the fee is 3%. For higher volumes, we offer custom enterprise pricing. There are no hidden charges - you only pay for successful transactions.",
+      "category": "pricing"
+    },
+    {
+      "question": "How long does it take to get started?",
+      "answer": "You can create an account and integrate Razorpay in less than a day. The basic integration takes just a few hours with our simple APIs and SDKs. Account activation typically happens within 24-48 hours after document submission.",
+      "category": "onboarding"
+    },
+    {
+      "question": "Is Razorpay secure?",
+      "answer": "Yes, Razorpay is PCI-DSS Level 1 compliant, which is the highest level of payment security certification. We use 256-bit SSL encryption and follow all RBI guidelines. Your customer data and payment information are completely secure.",
+      "category": "security"
+    },
+    {
+      "question": "What kind of support do you provide?",
+      "answer": "We provide 24/7 customer support via email, phone, and chat. We also have extensive documentation, integration guides, and a developer community. Enterprise customers get dedicated account managers and priority support.",
+      "category": "support"
+    },
+    {
+      "question": "Can I use Razorpay for international payments?",
+      "answer": "Yes, Razorpay supports international payments. You can accept payments from customers worldwide in multiple currencies. We support international cards and payment methods, making it easy to expand your business globally.",
+      "category": "product"
+    },
+    {
+      "question": "What industries do you serve?",
+      "answer": "We serve businesses across all industries including e-commerce, education, healthcare, travel, food delivery, SaaS, gaming, and more. Our platform is flexible and can be customized for any industry's specific payment needs.",
+      "category": "general"
+    },
+    {
+      "question": "How does payment settlement work?",
+      "answer": "Payment settlements happen within 2-3 business days by default. For verified merchants with good transaction history, we offer instant settlements where you can get your money in real-time. You can track all settlements in your dashboard.",
+      "category": "product"
+    },
+    {
+      "question": "Do you provide APIs for integration?",
+      "answer": "Yes, we provide comprehensive REST APIs, SDKs for all major programming languages (PHP, Python, Node.js, Java, .NET, Ruby), and mobile SDKs for Android and iOS. Our documentation makes integration straightforward for developers.",
+      "category": "technical"
+    }
+  ],
+  "pricing": {
+    "standard": {
+      "domestic_transaction_fee": "2%",
+      "international_transaction_fee": "3%",
+      "setup_fee": "₹0",
+      "annual_maintenance": "₹0",
+      "settlement_time": "2-3 business days"
+    },
+    "instant_settlements": {
+      "fee": "Additional 0.25% per transaction",
+      "description": "Get your money in real-time instead of waiting 2-3 days"
+    },
+    "enterprise": {
+      "description": "Custom pricing for businesses with high transaction volumes",
+      "features": [
+        "Dedicated account manager",
+        "Priority support",
+        "Custom settlement cycles",
+        "Negotiable transaction fees"
+      ]
+    }
+  },
+  "benefits": [
+    "Zero setup fees and no annual maintenance charges",
+    "Accept 100+ payment methods",
+    "99.99% uptime SLA",
+    "Automated payment reconciliation",
+    "Detailed analytics and reporting",
+    "Easy integration with popular platforms like WooCommerce, Shopify, etc.",
+    "Instant refunds and automated settlements"
+  ]
+}

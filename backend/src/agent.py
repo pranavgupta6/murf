@@ -26,229 +26,244 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-# Load company data for SDR
-def load_company_data():
-    """Load the company FAQ and information from JSON file"""
-    content_path = Path("shared-data/razorpay_company_data.json")
+# Load fraud cases database
+def load_fraud_database():
+    """Load the fraud cases database from JSON file"""
+    content_path = Path("shared-data/fraud_cases_database.json")
     with open(content_path, "r") as f:
         return json.load(f)
 
-COMPANY_DATA = load_company_data()
+def save_fraud_database(database):
+    """Save the updated fraud cases database to JSON file"""
+    content_path = Path("shared-data/fraud_cases_database.json")
+    with open(content_path, "w") as f:
+        json.dump(database, f, indent=2)
+
+FRAUD_DATABASE = load_fraud_database()
 
 
-class SDRAgent(Agent):
-    """Sales Development Representative agent that answers FAQ and captures leads"""
+class FraudAlertAgent(Agent):
+    """Fraud detection voice agent for bank security department"""
     
     def __init__(self) -> None:
-        # Build FAQ reference for the agent
-        faq_list = "\n".join([
-            f"Q: {faq['question']}\nA: {faq['answer']}" 
-            for faq in COMPANY_DATA['faqs']
-        ])
-        
-        company_name = COMPANY_DATA['company']['name']
-        company_desc = COMPANY_DATA['company']['description']
-        
         super().__init__(
-            instructions=f"""You are Arjun, a friendly and professional Sales Development Representative (SDR) for {company_name}.
+            instructions="""You are a professional fraud detection representative from SecureBank India's Fraud Prevention Department.
 
-ABOUT {company_name.upper()}:
-{company_desc}
+YOUR ROLE AND MISSION:
+You are calling customers about suspicious transactions detected on their accounts. Your goal is to verify the transaction and protect the customer from potential fraud.
 
-YOUR ROLE:
-1. **Warm Greeting**: Start with a warm, professional greeting. Introduce yourself as Arjun from {company_name}. Example: "Hi! I'm Arjun from Razorpay. How are you doing today?"
+CALL FLOW:
+1. **Introduction**: 
+   - Greet the customer warmly
+   - Introduce yourself: "This is the Fraud Prevention Department from SecureBank India"
+   - Explain you're calling about a suspicious transaction on their account
+   - Keep a calm, reassuring, professional tone
 
-2. **Discovery**: Ask open-ended questions to understand:
-   - What brought them here today?
-   - What they're currently working on or what challenges they face
-   - Their business needs and goals
+2. **Get Customer Name**:
+   - Ask: "May I have your full name please?"
+   - Use the get_fraud_case tool with their name to load their case
+   - If no case found, apologize and say there may have been an error
 
-3. **Answer Questions**: Use the FAQ knowledge below to answer their questions accurately. If asked about something not in the FAQ, politely say you'll need to connect them with a specialist.
+3. **Identity Verification**:
+   - Once you have their case, ask them the security question from their profile
+   - DO NOT ask for card numbers, PINs, passwords, or any sensitive banking credentials
+   - Only use the security question stored in their case
+   - Use verify_security_answer tool to check their answer
+   - If they answer correctly, proceed with the call
+   - If they answer incorrectly after 2 attempts, politely end the call using mark_verification_failed
 
-FAQ KNOWLEDGE BASE:
-{faq_list}
+4. **Read Transaction Details**:
+   - Once verified, you can use read_transaction_details tool OR read the details from the case directly
+   - Read out the suspicious transaction details clearly:
+     - Merchant name
+     - Amount
+     - Date and time
+     - Location
+     - Card ending in [last 4 digits]
+   - Example: "We detected a transaction of $1,247.50 at ABC Electronics Industry on alibaba.com from Shanghai, China on November 26th at 3:42 PM using your card ending in 4242."
 
-4. **Lead Qualification**: Throughout the conversation, naturally gather:
-   - Their name
-   - Company name
-   - Email address
-   - Their role/position
-   - What they want to use {company_name} for (use case)
-   - Their team size
-   - Their timeline (are they looking to start now, soon, or just exploring?)
+5. **Confirm Transaction**:
+   - Ask clearly: "Did you make or authorize this transaction?"
+   - Listen for their response (yes/no)
+   - If YES → Use mark_case_safe tool
+   - If NO → Use mark_case_fraudulent tool
 
-Use the function tools to save each piece of information as you collect it.
-
-5. **Closing**: When they indicate they're done (e.g., "That's all", "I'm done", "Thanks, bye"), use the end_call_with_summary tool to:
+6. **Closing**:
    - Thank them for their time
-   - Provide a brief verbal summary of what you learned
-   - Let them know someone will follow up
-   - Save the complete lead information
+   - Summarize the action taken
+   - Reassure them their account is secure
+   - End the call professionally
 
-CONVERSATION STYLE:
-- Be conversational and natural, not robotic
-- Listen actively and show genuine interest
-- Don't ask all questions at once - weave them naturally into the conversation
-- Be helpful and focus on understanding their needs
-- Stay professional but friendly
+IMPORTANT GUIDELINES:
+- Never ask for full card numbers, CVV, PIN, or passwords
+- Stay calm and professional even if the customer is worried
+- Be patient and empathetic
+- Speak clearly when reading transaction details
+- Confirm their answers before taking action
+- Use function tools to load cases and update status
 
-Remember: You're here to help them understand {company_name} and determine if it's a good fit for their needs.""",
+Remember: You're here to protect the customer from fraud while providing excellent service.""",
         )
         
-        # Initialize lead data storage
-        self.lead_data = {
-            "name": None,
-            "company": None,
-            "email": None,
-            "role": None,
-            "use_case": None,
-            "team_size": None,
-            "timeline": None,
-            "timestamp": None,
-            "conversation_notes": []
-        }
+        # Initialize fraud case data
+        self.current_case = None
+        self.verification_attempts = 0
+        self.max_verification_attempts = 2
+        self.is_verified = False
 
     @function_tool
-    async def save_lead_name(
+    async def get_fraud_case(
         self, 
-        name: Annotated[str, "The lead's full name"],
+        customer_name: Annotated[str, "The customer's full name to look up their fraud case"],
         context: RunContext
     ):
-        """Save the lead's name"""
-        self.lead_data["name"] = name
-        logger.info(f"Saved lead name: {name}")
-        return f"Saved name: {name}"
-
-    @function_tool
-    async def save_lead_company(
-        self, 
-        company: Annotated[str, "The lead's company name"],
-        context: RunContext
-    ):
-        """Save the lead's company name"""
-        self.lead_data["company"] = company
-        logger.info(f"Saved lead company: {company}")
-        return f"Saved company: {company}"
-
-    @function_tool
-    async def save_lead_email(
-        self, 
-        email: Annotated[str, "The lead's email address"],
-        context: RunContext
-    ):
-        """Save the lead's email address"""
-        self.lead_data["email"] = email
-        logger.info(f"Saved lead email: {email}")
-        return f"Saved email: {email}"
-
-    @function_tool
-    async def save_lead_role(
-        self, 
-        role: Annotated[str, "The lead's job title or role"],
-        context: RunContext
-    ):
-        """Save the lead's role or job title"""
-        self.lead_data["role"] = role
-        logger.info(f"Saved lead role: {role}")
-        return f"Saved role: {role}"
-
-    @function_tool
-    async def save_lead_use_case(
-        self, 
-        use_case: Annotated[str, "What the lead wants to use the product for"],
-        context: RunContext
-    ):
-        """Save the lead's use case or what they want to use the product for"""
-        self.lead_data["use_case"] = use_case
-        logger.info(f"Saved lead use case: {use_case}")
-        return f"Saved use case: {use_case}"
-
-    @function_tool
-    async def save_lead_team_size(
-        self, 
-        team_size: Annotated[str, "The size of the lead's team or company"],
-        context: RunContext
-    ):
-        """Save the lead's team size"""
-        self.lead_data["team_size"] = team_size
-        logger.info(f"Saved lead team size: {team_size}")
-        return f"Saved team size: {team_size}"
-
-    @function_tool
-    async def save_lead_timeline(
-        self, 
-        timeline: Annotated[str, "When the lead wants to get started (now/soon/later/exploring)"],
-        context: RunContext
-    ):
-        """Save the lead's timeline for getting started"""
-        self.lead_data["timeline"] = timeline
-        logger.info(f"Saved lead timeline: {timeline}")
-        return f"Saved timeline: {timeline}"
-
-    @function_tool
-    async def add_conversation_note(
-        self, 
-        note: Annotated[str, "Important point or insight from the conversation"],
-        context: RunContext
-    ):
-        """Add a note about something important mentioned in the conversation"""
-        self.lead_data["conversation_notes"].append(note)
-        logger.info(f"Added conversation note: {note}")
-        return f"Note saved"
-
-    @function_tool
-    async def search_faq(
-        self, 
-        question: Annotated[str, "The user's question to search for in the FAQ"],
-        context: RunContext
-    ):
-        """Search the FAQ knowledge base for relevant answers"""
-        # Simple keyword search
-        question_lower = question.lower()
-        relevant_faqs = []
+        """Load the fraud case for a specific customer by their name"""
+        logger.info(f"Looking up fraud case for: {customer_name}")
         
-        for faq in COMPANY_DATA['faqs']:
-            if (question_lower in faq['question'].lower() or 
-                question_lower in faq['answer'].lower() or
-                any(word in faq['question'].lower() or word in faq['answer'].lower() 
-                    for word in question_lower.split() if len(word) > 3)):
-                relevant_faqs.append(f"Q: {faq['question']}\nA: {faq['answer']}")
+        # Search for the customer in the database
+        for case in FRAUD_DATABASE['fraud_cases']:
+            if case['userName'].lower() == customer_name.lower():
+                self.current_case = case
+                logger.info(f"Found case for {customer_name}: {case['transactionName']}")
+                return f"Case loaded for {customer_name}. Security identifier: {case['securityIdentifier']}. Now proceed with identity verification by asking their security question: '{case['securityQuestion']}'"
         
-        if relevant_faqs:
-            return "\n\n".join(relevant_faqs[:3])  # Return top 3 matches
+        logger.warning(f"No fraud case found for: {customer_name}")
+        return f"I apologize, but I cannot find a fraud case for {customer_name} in our system. There may have been an error. Please contact our fraud department directly."
+
+    @function_tool
+    async def verify_security_answer(
+        self, 
+        customer_answer: Annotated[str, "The customer's answer to their security question"],
+        context: RunContext
+    ):
+        """Verify the customer's identity using their security answer"""
+        if not self.current_case:
+            return "Error: No case loaded. Please get the customer's name first."
+        
+        self.verification_attempts += 1
+        correct_answer = self.current_case['securityAnswer'].lower()
+        provided_answer = customer_answer.lower()
+        
+        logger.info(f"Verification attempt {self.verification_attempts}/{self.max_verification_attempts}")
+        
+        if provided_answer == correct_answer:
+            self.is_verified = True
+            logger.info(f"Verification successful for {self.current_case['userName']}")
+            return f"Thank you for verifying your identity. Now I need to inform you about the suspicious transaction we detected."
         else:
-            return "No specific FAQ found for this question. Use general knowledge from the instructions."
+            if self.verification_attempts >= self.max_verification_attempts:
+                logger.warning(f"Verification failed after {self.verification_attempts} attempts")
+                return f"I'm sorry, but I cannot verify your identity. For your security, I cannot proceed with this call. Please visit your nearest branch or call our main customer service line. Goodbye."
+            else:
+                remaining = self.max_verification_attempts - self.verification_attempts
+                return f"I'm sorry, that answer doesn't match our records. You have {remaining} more attempt(s). Let me ask the security question again."
 
     @function_tool
-    async def end_call_with_summary(self, context: RunContext):
-        """End the call and save the complete lead summary. Use this when the user indicates they're done."""
-        # Add timestamp
-        self.lead_data["timestamp"] = datetime.now().strftime("%Y%m%d_%H%M%S")
+    async def mark_verification_failed(self, context: RunContext):
+        """Mark the case as verification failed and end the call"""
+        if not self.current_case:
+            return "Error: No case loaded."
         
-        # Save lead to JSON file
-        lead_filename = f"lead_{self.lead_data['timestamp']}_{self.lead_data.get('name', 'Unknown').replace(' ', '_')}.json"
-        lead_path = Path("leads") / lead_filename
+        # Update the database
+        for case in FRAUD_DATABASE['fraud_cases']:
+            if case['securityIdentifier'] == self.current_case['securityIdentifier']:
+                case['status'] = 'verification_failed'
+                case['outcome_note'] = 'Customer failed identity verification. Call terminated for security.'
+                break
         
-        with open(lead_path, "w") as f:
-            json.dump(self.lead_data, f, indent=2)
+        save_fraud_database(FRAUD_DATABASE)
+        logger.info(f"Case marked as verification_failed for {self.current_case['userName']}")
         
-        logger.info(f"Lead saved to {lead_path}")
-        
-        # Create verbal summary
-        name = self.lead_data.get('name', 'the prospect')
-        company = self.lead_data.get('company', 'their company')
-        use_case = self.lead_data.get('use_case', 'their needs')
-        timeline = self.lead_data.get('timeline', 'their timeline')
-        
-        summary = f"""Thank you so much for your time today, {name}! Let me quickly recap what we discussed:
+        return "Case updated. Thank you for calling. Goodbye."
 
-You're from {company}, and you're interested in using Razorpay for {use_case}. Based on our conversation, your timeline is {timeline}.
-
-I've captured all your details, and someone from our team will reach out to you shortly at the email address you provided. We're excited about the possibility of working with you!
-
-Is there anything else I can help you with before we wrap up?"""
+    @function_tool
+    async def mark_case_safe(self, context: RunContext):
+        """Mark the fraud case as safe - customer confirmed they made the transaction"""
+        if not self.current_case:
+            return "Error: No case loaded."
         
-        return summary
+        if not self.is_verified:
+            return "Error: Customer must be verified first before updating case status."
+        
+        # Update the database
+        for case in FRAUD_DATABASE['fraud_cases']:
+            if case['securityIdentifier'] == self.current_case['securityIdentifier']:
+                case['status'] = 'confirmed_safe'
+                case['case'] = 'safe'
+                case['outcome_note'] = f'Customer {case["userName"]} confirmed they authorized this transaction. No fraud detected.'
+                break
+        
+        save_fraud_database(FRAUD_DATABASE)
+        logger.info(f"Case marked as SAFE for {self.current_case['userName']}")
+        
+        transaction_details = f"{self.current_case['transactionAmount']} at {self.current_case['transactionName']}"
+        
+        return f"""Perfect! I've updated our records to show that the transaction of {transaction_details} was authorized by you. 
+
+Your account remains secure and no further action is needed. Thank you for confirming this with us - we take your security very seriously.
+
+Is there anything else I can help you with today?"""
+
+    @function_tool
+    async def mark_case_fraudulent(self, context: RunContext):
+        """Mark the fraud case as fraudulent - customer did not authorize the transaction"""
+        if not self.current_case:
+            return "Error: No case loaded."
+        
+        if not self.is_verified:
+            return "Error: Customer must be verified first before updating case status."
+        
+        # Update the database
+        for case in FRAUD_DATABASE['fraud_cases']:
+            if case['securityIdentifier'] == self.current_case['securityIdentifier']:
+                case['status'] = 'confirmed_fraud'
+                case['case'] = 'fraudulent'
+                case['outcome_note'] = f'Customer {case["userName"]} denied making this transaction. Fraud confirmed. Card blocked and dispute initiated.'
+                break
+        
+        save_fraud_database(FRAUD_DATABASE)
+        logger.info(f"Case marked as FRAUDULENT for {self.current_case['userName']}")
+        
+        card_ending = self.current_case['cardEnding']
+        transaction_details = f"{self.current_case['transactionAmount']} at {self.current_case['transactionName']}"
+        
+        return f"""I understand. Thank you for letting us know. For your protection, I have immediately taken the following actions:
+
+1. Blocked your card ending in {card_ending}
+2. Initiated a fraud dispute for the {transaction_details} transaction
+3. Flagged this transaction for investigation
+4. Prevented any further charges on this card
+
+You will receive a new card at your registered address within 5-7 business days. We will also reverse the fraudulent charge within 7-10 business days.
+
+Please monitor your account for any other suspicious activity and contact us immediately if you notice anything unusual. 
+
+Your account security is our top priority. Is there anything else you need help with?"""
+
+    @function_tool
+    async def read_transaction_details(self, context: RunContext):
+        """Read out the suspicious transaction details to the customer"""
+        if not self.current_case:
+            return "Error: No case loaded. Please get the customer's name first."
+        
+        if not self.is_verified:
+            return "Error: Customer must be verified first before reading transaction details."
+        
+        case = self.current_case
+        details = f"""We detected a suspicious transaction on your account. Here are the details:
+
+- Amount: {case['transactionAmount']}
+- Merchant: {case['transactionName']}
+- Website: {case['transactionSource']}
+- Location: {case['transactionLocation']}
+- Date and Time: {case['transactionTime']}
+- Card used: ending in {case['cardEnding']}
+- Category: {case['transactionCategory']}
+
+Did you make or authorize this transaction?"""
+        
+        logger.info(f"Read transaction details to {case['userName']}")
+        return details
 
 
 def prewarm(proc: JobProcess):
@@ -324,7 +339,7 @@ async def entrypoint(ctx: JobContext):
 
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=SDRAgent(),
+        agent=FraudAlertAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             # For telephony applications, use `BVCTelephony` for best results

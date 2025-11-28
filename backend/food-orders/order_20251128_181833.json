@@ -1,0 +1,23 @@
+{
+  "order_id": "ORDER_20251128_181833",
+  "timestamp": "2025-11-28T18:18:33.771623",
+  "customer_name": "Guest",
+  "items": [
+    {
+      "id": "GR007",
+      "name": "Pasta",
+      "price": 85,
+      "quantity": 1,
+      "subtotal": 85.0
+    },
+    {
+      "id": "GR008",
+      "name": "Pasta Sauce",
+      "price": 120,
+      "quantity": 1,
+      "subtotal": 120.0
+    }
+  ],
+  "total": 205.0,
+  "status": "placed"
+}

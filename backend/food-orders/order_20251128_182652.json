@@ -1,0 +1,44 @@
+{
+  "order_id": "ORDER_20251128_182652",
+  "timestamp": "2025-11-28T18:26:52.352441",
+  "customer_name": "Guest",
+  "items": [
+    {
+      "id": "GR001",
+      "name": "Whole Wheat Bread",
+      "price": 45,
+      "quantity": 1,
+      "subtotal": 45.0
+    },
+    {
+      "id": "GR006",
+      "name": "Peanut Butter",
+      "price": 180,
+      "quantity": 1,
+      "subtotal": 180.0
+    },
+    {
+      "id": "GR004",
+      "name": "Milk",
+      "price": 60,
+      "quantity": 1,
+      "subtotal": 60.0
+    },
+    {
+      "id": "GR013",
+      "name": "Potatoes",
+      "price": 30,
+      "quantity": 1,
+      "subtotal": 30.0
+    },
+    {
+      "id": "SN003",
+      "name": "Cookies",
+      "price": 30,
+      "quantity": 1,
+      "subtotal": 30.0
+    }
+  ],
+  "total": 345.0,
+  "status": "placed"
+}

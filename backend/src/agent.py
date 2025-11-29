@@ -26,328 +26,268 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-# Load catalog and recipes for food ordering
-def load_catalog():
-    """Load the food catalog from JSON file"""
-    content_path = Path("shared-data/catalog.json")
+# Load game world and state for D&D-style adventure
+def load_game_world():
+    """Load the game world configuration from JSON file"""
+    content_path = Path("shared-data/game_state.json")
     with open(content_path, "r") as f:
         return json.load(f)
 
-def load_recipes():
-    """Load the recipes mapping from JSON file"""
-    content_path = Path("shared-data/recipes.json")
-    with open(content_path, "r") as f:
-        return json.load(f)
+def save_game_state(game_data):
+    """Save the current game state to JSON file"""
+    content_path = Path("shared-data/game_state.json")
+    with open(content_path, "w") as f:
+        json.dump(game_data, f, indent=2)
 
 
-class FoodOrderingAgent(Agent):
-    """Food and grocery ordering assistant for FreshCart Express"""
+class GameMasterAgent(Agent):
+    """D&D-style Game Master for interactive voice adventures in The Forgotten Realm"""
     
     def __init__(self) -> None:
-        # Load catalog and recipes when agent initializes
-        self.catalog = load_catalog()
-        self.recipes = load_recipes()
+        # Load game world when agent initializes
+        self.game_data = load_game_world()
+        self.world = self.game_data['world']
+        self.game_session = self.game_data['current_session']
         
-        # Build catalog summary for instructions
-        total_items = sum(len(items) for items in self.catalog['categories'].values())
-        categories = list(self.catalog['categories'].keys())
+        # Initialize new session
+        self.game_session['session_id'] = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.game_session['turn_count'] = 0
+        self.game_session['location'] = 'village_square'
+        self.game_session['inventory'] = []
+        self.game_session['health'] = 100
+        self.game_session['story_progress'] = 'intro'
         
         super().__init__(
-            instructions=f"""You are a friendly food and grocery ordering assistant for {self.catalog['store_name']}.
+            instructions=f"""You are the Game Master running an epic fantasy D&D-style adventure in {self.world['name']}.
 
-YOUR ROLE:
-You help customers order food and groceries quickly and easily. You have access to a catalog with {total_items} items across categories: {', '.join(categories)}.
+🎭 YOUR ROLE AS GAME MASTER:
+You are a dramatic storyteller who brings the world to life through vivid descriptions and engaging NPCs. You narrate scenes, embody characters, and respond to player choices.
 
-GREETING:
-- Welcome the customer warmly
-- Introduce yourself: "Welcome to {self.catalog['store_name']}! I can help you order groceries, snacks, prepared food, and beverages."
-- Ask what they'd like to order today
+🌍 THE WORLD - {self.world['name']}:
+A medieval fantasy realm where dragons soar, magic flows, and heroes rise. The village of Eldergrove is threatened by an ancient dragon, but not everything is as it seems...
 
-ORDERING CAPABILITIES:
+📖 STORY STRUCTURE:
+ACT 1 - INTRODUCTION (Turns 1-3):
+- Player arrives in the village square of Eldergrove
+- Elder Thornwick urgently seeks a hero
+- The village is in panic - a dragon has been spotted near the forest
+- Set the scene: peaceful village disrupted by fear
 
-1. **Specific Items** (FASTEST - Use This): 
-   - Customer says: "I want bread" or "Add milk to cart"
-   - Directly use add_to_cart with the item name (e.g., "bread", "milk")
-   - The tool will handle searching automatically
-   - Only use search_catalog if customer asks "What do you have?" or wants to browse
-   - Default to quantity 1 if not specified
+ACT 2 - INVESTIGATION (Turns 4-8):
+- Player explores: tavern, blacksmith, or forest path
+- NPCs reveal clues: innkeeper knows rumors, blacksmith offers gear, old warrior gives advice
+- The twist: mysterious stranger in forest knows the truth
+- Build tension: dragon isn't the villain, treasure was stolen FROM the dragon
 
-2. **Ingredients for Dishes** (SMART FEATURE):
-   - Customer says: "I need ingredients for a peanut butter sandwich" or "Get me pasta ingredients"
-   - Use get_recipe_ingredients tool with the dish name
-   - This automatically adds ALL required ingredients to cart in one call
-   - Confirm what was added
+ACT 3 - DRAGON ENCOUNTER (Turns 9-12):
+- Player reaches dragon's lair
+- Vorthax the Ancient is intelligent, not mindlessly evil
+- Revelation: village thieves stole his precious Crimson Dragon's Eye
+- Choice: fight dragon (hard), help recover treasure (quest), or negotiate (diplomacy)
 
-3. **Cart Management**:
-   - Use view_cart only when customer explicitly asks "What's in my cart?"
-   - Use remove_from_cart to remove items
-   - Use update_cart_quantity to change quantities
+ACT 4 - RESOLUTION (Turns 13-15):
+- Based on player's choice:
+  * Combat: epic battle with dragon
+  * Quest: find thieves in village, recover gem
+  * Diplomacy: broker peace between dragon and village
+- Satisfying conclusion with reward
 
-4. **Order Completion**:
-   - When customer says "That's all", "Place order", "Checkout"
-   - Use place_order tool immediately (it will show cart and total)
-   - Confirm order placed
+🎲 GM RULES - FOLLOW THESE EXACTLY:
 
-CONVERSATION STYLE:
-- Be quick and efficient - avoid unnecessary tool calls
-- Respond immediately after tool results
-- Keep responses concise
-- Ask for clarification only when truly needed
+1. **Narration Style**:
+   - Use vivid, sensory details (sights, sounds, smells)
+   - Speak in second person: "You see...", "You hear...", "Before you..."
+   - Be dramatic but not overly verbose
+   - Create atmosphere: tense in danger, peaceful in safety
 
-IMPORTANT RULES:
-- For "add X" requests: Use add_to_cart DIRECTLY (fastest)
-- For "ingredients for X": Use get_recipe_ingredients DIRECTLY
-- DON'T call search_catalog unless customer wants to browse
-- DON'T call view_cart after every add operation
-- Keep the conversation moving fast""",
+2. **Scene Structure** (EVERY RESPONSE):
+   - Describe the current scene (2-3 sentences)
+   - If NPC present, have them speak directly in character
+   - Present the situation/challenge
+   - END with clear question: "What do you do?" or "How do you respond?"
+
+3. **Player Agency**:
+   - Accept creative solutions
+   - Don't force a specific path
+   - Let player be heroic, clever, or diplomatic
+   - Consequences should feel fair
+
+4. **Dice Rolls** (Simulate internally):
+   - For risky actions, mentally decide success/failure
+   - Describe outcome dramatically: "Your blade strikes true!" vs "You miss!"
+   - Keep combat quick: 2-3 exchanges max
+
+5. **Pacing**:
+   - Keep responses concise (3-5 sentences)
+   - Move story forward each turn
+   - Don't get stuck in one location too long
+   - Build toward dragon encounter by turn 9
+
+6. **NPCs** (Be these characters):
+   - Elder Thornwick: "Please, brave adventurer, our village needs you!"
+   - Vorthax the Dragon: Deep, rumbling voice - "You dare enter my lair, little mortal?"
+   - Shadowcloak: Whispers mysteriously - "Not all monsters are evil..."
+   - Innkeeper Bella: Chatty and warm - "Oh honey, let me tell you what I heard..."
+   - Blacksmith Grimgar: Gruff but helpful - "Need a weapon? I've got just the thing."
+
+7. **Use Function Tools**:
+   - Call update_location when player moves
+   - Call add_to_inventory when player gets item
+   - Call record_npc_interaction when meeting characters
+   - Call progress_story when advancing to new act
+   - Call check_victory_condition when story might end
+
+8. **Victory Conditions**:
+   - Fight dragon and win
+   - Recover stolen gem and return to dragon
+   - Broker peace deal between dragon and village
+   All lead to satisfying conclusion!
+
+🎬 OPENING SCENE:
+Start with: "Welcome, brave adventurer, to The Forgotten Realm! You find yourself standing in the village square of Eldergrove on a crisp autumn morning. The fountain bubbles peacefully at the center, but the villagers seem anxious, whispering among themselves. 
+
+An elderly man in robes hurries toward you - Elder Thornwick, by the look of his ceremonial staff. 'Thank the gods you've arrived!' he says breathlessly. 'A great dragon has been spotted in the northern forest. Our village lives in fear. Will you help us?'
+
+What do you do?"
+
+REMEMBER: 
+- Keep it moving and exciting
+- End EVERY response with "What do you do?" or similar
+- Use function tools to track progress
+- Make player feel like a hero
+- This is cooperative storytelling - have fun!""",
         )
         
-        # Initialize cart
-        self.cart = {}  # Format: {item_id: {"item": item_data, "quantity": int}}
-        self.customer_name = None
-
     @function_tool
-    async def search_catalog(
-        self, 
-        item_name: Annotated[str, "The name of the item to search for (e.g., 'bread', 'milk', 'chips')"]
-    ):
-        """Search the catalog for items matching the customer's query"""
-        logger.info(f"Searching catalog for: {item_name}")
-        
-        search_term = item_name.lower()
-        results = []
-        
-        # Search across all categories
-        for category, items in self.catalog['categories'].items():
-            for item in items:
-                if search_term in item['name'].lower() or any(search_term in tag.lower() for tag in item['tags']):
-                    results.append({
-                        "id": item['id'],
-                        "name": item['name'],
-                        "price": item['price'],
-                        "category": category,
-                        "brand": item.get('brand', 'N/A'),
-                        "unit": item['unit']
-                    })
-        
-        if not results:
-            logger.info(f"No items found for '{item_name}'")
-            return f"Sorry, I couldn't find any items matching '{item_name}'. Could you try describing it differently or browse our categories: {', '.join(self.catalog['categories'].keys())}?"
-        
-        if len(results) == 1:
-            item = results[0]
-            return f"I found: {item['name']} ({item['brand']}) - ${item['price']} per {item['unit']}. Item ID: {item['id']}. Would you like to add this to your cart?"
-        
-        # Multiple results
-        result_list = "\n".join([f"- {r['name']} ({r['brand']}) - ${r['price']} per {r['unit']} [ID: {r['id']}]" for r in results[:5]])
-        return f"I found {len(results)} items:\n{result_list}\n\nWhich one would you like? You can tell me the item ID or name."
-
-    @function_tool
-    async def add_to_cart(
+    async def update_location(
         self,
-        item_id: Annotated[str, "The ID of the item to add (e.g., 'GR001', 'SN003') OR the item name (e.g., 'bread', 'milk')"],
-        quantity: Annotated[int, "The quantity to add (default 1)"] = 1
+        new_location: Annotated[str, "The key of the new location (e.g., 'forest_path', 'dragon_cave', 'tavern')"]
     ):
-        """Add an item to the shopping cart by item ID or name"""
-        logger.info(f"Adding {quantity}x {item_id} to cart")
+        """Update the player's current location in the game world"""
+        logger.info(f"Player moving to: {new_location}")
         
-        # First, try to find by ID
-        item_found = None
-        actual_item_id = item_id
+        if new_location not in self.world['locations']:
+            return f"Error: Location '{new_location}' does not exist."
         
-        for category, items in self.catalog['categories'].items():
-            for item in items:
-                if item['id'] == item_id:
-                    item_found = item
-                    actual_item_id = item['id']
-                    break
-            if item_found:
-                break
+        old_location = self.game_session['location']
+        self.game_session['location'] = new_location
+        self.game_session['turn_count'] += 1
         
-        # If not found by ID, try to find by name
-        if not item_found:
-            search_term = item_id.lower()
-            matches = []
-            
-            for category, items in self.catalog['categories'].items():
-                for item in items:
-                    if search_term in item['name'].lower():
-                        matches.append(item)
-            
-            if len(matches) == 1:
-                item_found = matches[0]
-                actual_item_id = item_found['id']
-            elif len(matches) > 1:
-                match_list = "\n".join([f"- {m['name']} ({m['brand']}) - ${m['price']} [ID: {m['id']}]" for m in matches[:5]])
-                return f"I found multiple items matching '{item_id}':\n{match_list}\n\nPlease specify which one by using its ID or being more specific with the name."
-            else:
-                return f"Error: Item '{item_id}' not found in catalog. Try using search_catalog first to find the exact item."
+        location_data = self.world['locations'][new_location]
+        save_game_state(self.game_data)
         
-        # Add to cart
-        if actual_item_id in self.cart:
-            self.cart[actual_item_id]['quantity'] += quantity
-            new_qty = self.cart[actual_item_id]['quantity']
-            return f"Updated! You now have {new_qty} {item_found['name']} in your cart."
-        else:
-            self.cart[actual_item_id] = {
-                "item": item_found,
-                "quantity": quantity
-            }
-            return f"Added {quantity} {item_found['name']} to your cart (${item_found['price']} per {item_found['unit']})."
-
+        logger.info(f"Moved from {old_location} to {new_location}")
+        return f"Location updated to {location_data['name']}. {location_data['description']}"
+    
     @function_tool
-    async def get_recipe_ingredients(
+    async def add_to_inventory(
         self,
-        dish_name: Annotated[str, "The name of the dish to get ingredients for (e.g., 'peanut butter sandwich', 'pasta')"]
+        item_key: Annotated[str, "The key of the item to add (e.g., 'rusty_sword', 'healing_potion')"]
     ):
-        """Get all ingredients for a specific dish and add them to cart automatically"""
-        logger.info(f"Looking up recipe for: {dish_name}")
+        """Add an item to the player's inventory"""
+        logger.info(f"Adding item to inventory: {item_key}")
         
-        search_term = dish_name.lower()
+        if item_key not in self.world['items']:
+            return f"Error: Item '{item_key}' does not exist."
         
-        # Search recipes - recipes is a dictionary with recipe names as keys
-        recipe_found = None
-        for recipe_key, recipe_data in self.recipes['recipes'].items():
-            if search_term in recipe_key.lower() or search_term in recipe_data['name'].lower():
-                recipe_found = recipe_data
-                break
+        if item_key in self.game_session['inventory']:
+            return f"Player already has {self.world['items'][item_key]['name']}."
         
-        if not recipe_found:
-            return f"Sorry, I don't have a recipe for '{dish_name}'. I can help you order individual items though!"
+        self.game_session['inventory'].append(item_key)
+        item = self.world['items'][item_key]
+        save_game_state(self.game_data)
         
-        # Add all ingredients to cart
-        added_items = []
-        for ingredient_id in recipe_found['ingredients']:
-            # Find item in catalog
-            for category, items in self.catalog['categories'].items():
-                for item in items:
-                    if item['id'] == ingredient_id:
-                        # Add to cart
-                        if ingredient_id in self.cart:
-                            self.cart[ingredient_id]['quantity'] += 1
-                        else:
-                            self.cart[ingredient_id] = {
-                                "item": item,
-                                "quantity": 1
-                            }
-                        added_items.append(item['name'])
-                        break
-        
-        logger.info(f"Added {len(added_items)} ingredients for {recipe_found['name']}")
-        items_list = ", ".join(added_items)
-        return f"Great! I've added all the ingredients for {recipe_found['name']}: {items_list}. Anything else you need?"
-
+        logger.info(f"Added {item['name']} to inventory")
+        return f"Added {item['name']} to inventory: {item['description']}"
+    
     @function_tool
-    async def view_cart(self):
-        """View all items currently in the shopping cart"""
-        logger.info("Viewing cart")
-        
-        if not self.cart:
-            return "Your cart is empty. What would you like to order?"
-        
-        cart_items = []
-        total = 0.0
-        
-        for item_id, cart_data in self.cart.items():
-            item = cart_data['item']
-            qty = cart_data['quantity']
-            price = float(item['price'])
-            subtotal = price * qty
-            total += subtotal
-            
-            cart_items.append(f"- {item['name']} x {qty} = ${subtotal:.2f}")
-        
-        items_text = "\n".join(cart_items)
-        return f"""Your cart:\n{items_text}\n\nTotal: ${total:.2f}\n\nReady to place your order?"""
-
-    @function_tool
-    async def update_cart_quantity(
+    async def record_npc_interaction(
         self,
-        item_id: Annotated[str, "The ID of the item to update"],
-        new_quantity: Annotated[int, "The new quantity (must be > 0)"]
+        npc_key: Annotated[str, "The key of the NPC (e.g., 'village_elder', 'ancient_dragon')"]
     ):
-        """Update the quantity of an item in the cart"""
-        logger.info(f"Updating {item_id} quantity to {new_quantity}")
+        """Record that the player has interacted with an NPC"""
+        logger.info(f"Recording interaction with: {npc_key}")
         
-        if item_id not in self.cart:
-            return f"Error: {item_id} is not in your cart."
+        if npc_key not in self.world['npcs']:
+            return f"Error: NPC '{npc_key}' does not exist."
         
-        if new_quantity <= 0:
-            return "Quantity must be greater than 0. Use remove_from_cart to delete items."
+        npc = self.world['npcs'][npc_key]
+        logger.info(f"Player met {npc['name']}")
         
-        item_name = self.cart[item_id]['item']['name']
-        self.cart[item_id]['quantity'] = new_quantity
-        
-        return f"Updated {item_name} quantity to {new_quantity}."
-
+        return f"Interaction recorded with {npc['name']} ({npc['personality']}). Quest: {npc['quest']}"
+    
     @function_tool
-    async def remove_from_cart(
+    async def progress_story(
         self,
-        item_id: Annotated[str, "The ID of the item to remove"]
+        new_phase: Annotated[str, "The new story phase (intro/investigation/forest_encounter/dragon_confrontation/resolution)"]
     ):
-        """Remove an item from the shopping cart"""
-        logger.info(f"Removing {item_id} from cart")
+        """Progress the story to a new phase"""
+        logger.info(f"Advancing story to: {new_phase}")
         
-        if item_id not in self.cart:
-            return f"Error: {item_id} is not in your cart."
+        old_phase = self.game_session['story_progress']
+        self.game_session['story_progress'] = new_phase
+        save_game_state(self.game_data)
         
-        item_name = self.cart[item_id]['item']['name']
-        del self.cart[item_id]
-        
-        return f"Removed {item_name} from your cart."
-
+        logger.info(f"Story progressed from {old_phase} to {new_phase}")
+        return f"Story phase updated to: {new_phase}. {self.game_data['story_arcs'].get(new_phase, '')}"
+    
     @function_tool
-    async def place_order(self):
-        """Place the order and save it to the orders directory"""
-        logger.info("Placing order")
+    async def check_victory_condition(
+        self,
+        outcome: Annotated[str, "The outcome achieved (dragon_defeated/treasure_recovered/peace_brokered)"]
+    ):
+        """Check if the player has achieved a victory condition"""
+        logger.info(f"Checking victory condition: {outcome}")
         
-        if not self.cart:
-            return "Your cart is empty! Add some items first."
-        
-        # Calculate total
-        total = sum(
-            float(cart_data['item']['price']) * cart_data['quantity']
-            for cart_data in self.cart.values()
-        )
-        
-        # Create order object
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        order = {
-            "order_id": f"ORDER_{timestamp}",
-            "timestamp": datetime.now().isoformat(),
-            "customer_name": self.customer_name or "Guest",
-            "items": [
-                {
-                    "id": cart_data['item']['id'],
-                    "name": cart_data['item']['name'],
-                    "price": cart_data['item']['price'],
-                    "quantity": cart_data['quantity'],
-                    "subtotal": float(cart_data['item']['price']) * cart_data['quantity']
-                }
-                for cart_data in self.cart.values()
-            ],
-            "total": total,
-            "status": "placed"
+        victories = {
+            "dragon_defeated": "You have slain Vorthax the Ancient in glorious combat! The village celebrates your heroism.",
+            "treasure_recovered": "You recovered the Crimson Dragon's Eye and returned it to Vorthax. The dragon thanks you and vows to protect the village.",
+            "peace_brokered": "Your diplomacy has brought peace! The dragon and village now trade knowledge and protection."
         }
         
-        # Save order
-        order_path = Path(f"food-orders/order_{timestamp}.json")
-        with open(order_path, "w") as f:
-            json.dump(order, f, indent=2)
+        if outcome in victories:
+            self.game_session['story_progress'] = 'completed'
+            save_game_state(self.game_data)
+            return f"VICTORY! {victories[outcome]} Total turns: {self.game_session['turn_count']}. Adventure complete!"
         
-        logger.info(f"Order placed: {order['order_id']}")
+        return "Condition not met yet."
+    
+    @function_tool
+    async def update_health(
+        self,
+        change: Annotated[int, "Health change amount (positive for healing, negative for damage)"]
+    ):
+        """Update the player's health"""
+        logger.info(f"Updating health by: {change}")
         
-        # Clear cart
-        item_count = len(self.cart)
-        self.cart = {}
+        self.game_session['health'] += change
+        if self.game_session['health'] > 100:
+            self.game_session['health'] = 100
         
-        return f"""Perfect! Your order has been placed successfully!
-
-Order ID: {order['order_id']}
-Total: ${total:.2f}
-Items: {item_count}
-
-Your order will be delivered within 30-45 minutes. Thank you for shopping with {self.catalog['store_name']}!"""
+        save_game_state(self.game_data)
+        
+        if self.game_session['health'] <= 0:
+            return f"Your health has fallen to 0! You collapse... But brave heroes never truly die. You awaken back at the village, determined to try again."
+        
+        return f"Health updated to {self.game_session['health']}/100."
+    
+    @function_tool
+    async def view_status(self):
+        """View current player status and game state"""
+        logger.info("Viewing player status")
+        
+        location = self.world['locations'][self.game_session['location']]
+        inventory_list = [self.world['items'][item]['name'] for item in self.game_session['inventory']]
+        inventory_str = ", ".join(inventory_list) if inventory_list else "Empty"
+        
+        status = f"""Current Status:
+Location: {location['name']}
+Health: {self.game_session['health']}/100
+Inventory: {inventory_str}
+Story Progress: {self.game_session['story_progress']}
+Turn: {self.game_session['turn_count']}"""
+        
+        return status
 
 
 def prewarm(proc: JobProcess):
@@ -388,16 +328,6 @@ async def entrypoint(ctx: JobContext):
         preemptive_generation=True,
     )
 
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead.
-    # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
-    # 1. Install livekit-agents[openai]
-    # 2. Set OPENAI_API_KEY in .env.local
-    # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. Use the following session setup instead of the version above
-    # session = AgentSession(
-    #     llm=openai.realtime.RealtimeModel(voice="marin")
-    # )
-
     # Metrics collection, to measure pipeline performance
     # For more information, see https://docs.livekit.io/agents/build/metrics/
     usage_collector = metrics.UsageCollector()
@@ -413,17 +343,9 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(log_usage)
 
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
-
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=FoodOrderingAgent(),
+        agent=GameMasterAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             # For telephony applications, use `BVCTelephony` for best results

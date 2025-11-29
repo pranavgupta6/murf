@@ -1,0 +1,132 @@
+{
+  "current_session": {
+    "session_id": "20251129_181146",
+    "player_name": null,
+    "location": "village_square",
+    "turn_count": 0,
+    "inventory": [],
+    "health": 100,
+    "story_progress": "ACT 4 - RESOLUTION"
+  },
+  "world": {
+    "name": "The Forgotten Realm",
+    "locations": {
+      "village_square": {
+        "name": "Village Square of Eldergrove",
+        "description": "A peaceful village square with a fountain at its center. Villagers go about their daily business.",
+        "exits": [
+          "forest_path",
+          "tavern",
+          "blacksmith"
+        ],
+        "npcs": [
+          "village_elder",
+          "merchant"
+        ]
+      },
+      "forest_path": {
+        "name": "Dark Forest Path",
+        "description": "An overgrown path leading into a dense, mysterious forest. Strange sounds echo from within.",
+        "exits": [
+          "village_square",
+          "dragon_cave"
+        ],
+        "npcs": [
+          "mysterious_stranger"
+        ]
+      },
+      "dragon_cave": {
+        "name": "Ancient Dragon's Lair",
+        "description": "A massive cave entrance carved with ancient runes. Heat and smoke billow from within.",
+        "exits": [
+          "forest_path"
+        ],
+        "npcs": [
+          "ancient_dragon"
+        ]
+      },
+      "tavern": {
+        "name": "The Rusty Sword Tavern",
+        "description": "A cozy tavern filled with the smell of ale and roasted meat. Adventurers share stories by the fireplace.",
+        "exits": [
+          "village_square"
+        ],
+        "npcs": [
+          "innkeeper",
+          "old_warrior"
+        ]
+      },
+      "blacksmith": {
+        "name": "Ironforge Smithy",
+        "description": "The rhythmic clanging of hammer on anvil fills the air. Weapons and armor line the walls.",
+        "exits": [
+          "village_square"
+        ],
+        "npcs": [
+          "blacksmith"
+        ]
+      }
+    },
+    "npcs": {
+      "village_elder": {
+        "name": "Elder Thornwick",
+        "personality": "Wise and concerned",
+        "quest": "The village needs a hero to investigate the dragon threatening their lands"
+      },
+      "ancient_dragon": {
+        "name": "Vorthax the Ancient",
+        "personality": "Intelligent and cunning, not immediately hostile",
+        "quest": "His treasure was stolen by thieves from the village"
+      },
+      "mysterious_stranger": {
+        "name": "Shadowcloak",
+        "personality": "Cryptic and helpful",
+        "quest": "Knows the dragon's secret"
+      },
+      "blacksmith": {
+        "name": "Grimgar Ironforge",
+        "personality": "Gruff but helpful",
+        "quest": "Can craft a legendary weapon if you bring dragon scales"
+      },
+      "innkeeper": {
+        "name": "Bella Hopsworth",
+        "personality": "Friendly and gossipy",
+        "quest": "Knows rumors about the dragon and the stolen treasure"
+      },
+      "old_warrior": {
+        "name": "Sir Aldric",
+        "personality": "Retired hero, full of advice",
+        "quest": "Will teach you a special combat technique"
+      }
+    },
+    "items": {
+      "rusty_sword": {
+        "name": "Rusty Sword",
+        "description": "An old sword, but better than nothing"
+      },
+      "healing_potion": {
+        "name": "Healing Potion",
+        "description": "Restores 50 health"
+      },
+      "dragon_scale": {
+        "name": "Dragon Scale",
+        "description": "A shimmering scale from Vorthax"
+      },
+      "ancient_amulet": {
+        "name": "Ancient Amulet",
+        "description": "Glows with protective magic"
+      },
+      "stolen_gem": {
+        "name": "Crimson Dragon's Eye",
+        "description": "The dragon's most precious treasure"
+      }
+    }
+  },
+  "story_arcs": {
+    "intro": "Player arrives in village, learns about dragon threat",
+    "investigation": "Player gathers information, meets NPCs, prepares",
+    "forest_encounter": "Player ventures to forest, meets mysterious stranger",
+    "dragon_confrontation": "Player reaches dragon, discovers truth about stolen treasure",
+    "resolution": "Player resolves conflict (fight, negotiate, or recover treasure)"
+  }
+}

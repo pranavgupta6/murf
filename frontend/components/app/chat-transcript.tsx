@@ -58,29 +58,28 @@ export function ChatTranscript({
   messages = [],
   ...props
 }: ChatTranscriptProps & Omit<HTMLMotionProps<'div'>, 'ref'>) {
+  // Don't use AnimatePresence or initial hidden state - just show messages immediately
   return (
-    <AnimatePresence>
-      {!hidden && (
-        <MotionContainer {...CONTAINER_MOTION_PROPS} {...props}>
-          {messages.map(({ id, timestamp, from, message, editTimestamp }: ReceivedChatMessage) => {
-            const locale = navigator?.language ?? 'en-US';
-            const messageOrigin = from?.isLocal ? 'local' : 'remote';
-            const hasBeenEdited = !!editTimestamp;
+    <div {...props}>
+      {messages.map(({ id, timestamp, from, message, editTimestamp }: ReceivedChatMessage) => {
+        const locale = navigator?.language ?? 'en-US';
+        const messageOrigin = from?.isLocal ? 'local' : 'remote';
+        const hasBeenEdited = !!editTimestamp;
 
-            return (
-              <MotionChatEntry
-                key={id}
-                locale={locale}
-                timestamp={timestamp}
-                message={message}
-                messageOrigin={messageOrigin}
-                hasBeenEdited={hasBeenEdited}
-                {...MESSAGE_MOTION_PROPS}
-              />
-            );
-          })}
-        </MotionContainer>
-      )}
-    </AnimatePresence>
+        return (
+          <MotionChatEntry
+            key={id}
+            locale={locale}
+            timestamp={timestamp}
+            message={message}
+            messageOrigin={messageOrigin}
+            hasBeenEdited={hasBeenEdited}
+            initial={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          />
+        );
+      })}
+    </div>
   );
 }

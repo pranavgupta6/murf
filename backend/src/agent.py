@@ -47,15 +47,15 @@ class GameMasterAgent(Agent):
         # Load game world when agent initializes
         self.game_data = load_game_world()
         self.world = self.game_data['world']
-        self.game_session = self.game_data['current_session']
+        self.session = self.game_data['current_session']
         
         # Initialize new session
-        self.game_session['session_id'] = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.game_session['turn_count'] = 0
-        self.game_session['location'] = 'village_square'
-        self.game_session['inventory'] = []
-        self.game_session['health'] = 100
-        self.game_session['story_progress'] = 'intro'
+        self.session['session_id'] = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.session['turn_count'] = 0
+        self.session['location'] = 'village_square'
+        self.session['inventory'] = []
+        self.session['health'] = 100
+        self.session['story_progress'] = 'intro'
         
         super().__init__(
             instructions=f"""You are the Game Master running an epic fantasy D&D-style adventure in {self.world['name']}.
@@ -169,9 +169,9 @@ REMEMBER:
         if new_location not in self.world['locations']:
             return f"Error: Location '{new_location}' does not exist."
         
-        old_location = self.game_session['location']
-        self.game_session['location'] = new_location
-        self.game_session['turn_count'] += 1
+        old_location = self.session['location']
+        self.session['location'] = new_location
+        self.session['turn_count'] += 1
         
         location_data = self.world['locations'][new_location]
         save_game_state(self.game_data)
@@ -190,10 +190,10 @@ REMEMBER:
         if item_key not in self.world['items']:
             return f"Error: Item '{item_key}' does not exist."
         
-        if item_key in self.game_session['inventory']:
+        if item_key in self.session['inventory']:
             return f"Player already has {self.world['items'][item_key]['name']}."
         
-        self.game_session['inventory'].append(item_key)
+        self.session['inventory'].append(item_key)
         item = self.world['items'][item_key]
         save_game_state(self.game_data)
         
@@ -224,8 +224,8 @@ REMEMBER:
         """Progress the story to a new phase"""
         logger.info(f"Advancing story to: {new_phase}")
         
-        old_phase = self.game_session['story_progress']
-        self.game_session['story_progress'] = new_phase
+        old_phase = self.session['story_progress']
+        self.session['story_progress'] = new_phase
         save_game_state(self.game_data)
         
         logger.info(f"Story progressed from {old_phase} to {new_phase}")
@@ -246,9 +246,9 @@ REMEMBER:
         }
         
         if outcome in victories:
-            self.game_session['story_progress'] = 'completed'
+            self.session['story_progress'] = 'completed'
             save_game_state(self.game_data)
-            return f"VICTORY! {victories[outcome]} Total turns: {self.game_session['turn_count']}. Adventure complete!"
+            return f"VICTORY! {victories[outcome]} Total turns: {self.session['turn_count']}. Adventure complete!"
         
         return "Condition not met yet."
     
@@ -260,32 +260,32 @@ REMEMBER:
         """Update the player's health"""
         logger.info(f"Updating health by: {change}")
         
-        self.game_session['health'] += change
-        if self.game_session['health'] > 100:
-            self.game_session['health'] = 100
+        self.session['health'] += change
+        if self.session['health'] > 100:
+            self.session['health'] = 100
         
         save_game_state(self.game_data)
         
-        if self.game_session['health'] <= 0:
+        if self.session['health'] <= 0:
             return f"Your health has fallen to 0! You collapse... But brave heroes never truly die. You awaken back at the village, determined to try again."
         
-        return f"Health updated to {self.game_session['health']}/100."
+        return f"Health updated to {self.session['health']}/100."
     
     @function_tool
     async def view_status(self):
         """View current player status and game state"""
         logger.info("Viewing player status")
         
-        location = self.world['locations'][self.game_session['location']]
-        inventory_list = [self.world['items'][item]['name'] for item in self.game_session['inventory']]
+        location = self.world['locations'][self.session['location']]
+        inventory_list = [self.world['items'][item]['name'] for item in self.session['inventory']]
         inventory_str = ", ".join(inventory_list) if inventory_list else "Empty"
         
         status = f"""Current Status:
 Location: {location['name']}
-Health: {self.game_session['health']}/100
+Health: {self.session['health']}/100
 Inventory: {inventory_str}
-Story Progress: {self.game_session['story_progress']}
-Turn: {self.game_session['turn_count']}"""
+Story Progress: {self.session['story_progress']}
+Turn: {self.session['turn_count']}"""
         
         return status
 

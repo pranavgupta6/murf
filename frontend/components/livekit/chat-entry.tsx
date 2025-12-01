@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { ShoppingBag, User } from 'lucide-react';
+import { Mic, Sparkles } from 'lucide-react';
 
 export interface ChatEntryProps extends React.HTMLAttributes<HTMLLIElement> {
   /** The locale to use for the timestamp. */
@@ -29,8 +29,8 @@ export const ChatEntry = ({
 }: ChatEntryProps) => {
   const time = new Date(timestamp);
   const title = time.toLocaleTimeString(locale, { timeStyle: 'full' });
-  const isAssistant = messageOrigin === 'remote';
-  const isCustomer = messageOrigin === 'local';
+  const isHost = messageOrigin === 'remote';
+  const isContestant = messageOrigin === 'local';
 
   return (
     <li
@@ -39,45 +39,45 @@ export const ChatEntry = ({
       className={cn('group flex w-full flex-col gap-2', className)}
       {...props}
     >
-      {/* Shopping Assistant - Clean Professional Style */}
-      {isAssistant && (
+      {/* Improv Host - Energetic Purple Style */}
+      {isHost && (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-blue-800 shadow-lg">
-              <ShoppingBag className="h-4 w-4 text-blue-100" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-purple-800 shadow-lg">
+              <Sparkles className="h-4 w-4 text-purple-100" />
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-bold text-blue-300">Shopping Assistant</span>
-              <span className="font-mono text-xs text-blue-400/60 opacity-0 transition-opacity ease-linear group-hover:opacity-100">
+              <span className="text-sm font-bold text-purple-300">Improv Host</span>
+              <span className="font-mono text-xs text-purple-400/60 opacity-0 transition-opacity ease-linear group-hover:opacity-100">
                 {time.toLocaleTimeString(locale, { timeStyle: 'short' })}
               </span>
             </div>
           </div>
           
-          <div className="relative ml-10 max-w-[85%] rounded-xl border border-blue-200/20 bg-gradient-to-br from-blue-50 to-slate-50 p-4 shadow-lg dark:from-blue-950/30 dark:to-slate-900/30">
-            <p className="text-base leading-relaxed text-slate-800 dark:text-slate-100">
+          <div className="relative ml-10 max-w-[85%] rounded-xl border border-purple-200/20 bg-gradient-to-br from-purple-50 to-fuchsia-50 p-4 shadow-lg dark:from-purple-950/30 dark:to-fuchsia-900/30">
+            <p className="text-base leading-relaxed text-purple-950 dark:text-purple-100">
               {message}
             </p>
           </div>
         </div>
       )}
 
-      {/* Customer - Modern Bubble */}
-      {isCustomer && (
+      {/* Contestant - Bright Yellow/Orange Bubble */}
+      {isContestant && (
         <div className="flex flex-col gap-1.5">
           <div className="ml-auto flex items-center gap-2">
             <div className="flex flex-col items-end">
-              <span className="text-sm font-bold text-emerald-300">You</span>
-              <span className="font-mono text-xs text-emerald-400/60 opacity-0 transition-opacity ease-linear group-hover:opacity-100">
+              <span className="text-sm font-bold text-amber-300">You</span>
+              <span className="font-mono text-xs text-amber-400/60 opacity-0 transition-opacity ease-linear group-hover:opacity-100">
                 {time.toLocaleTimeString(locale, { timeStyle: 'short' })}
               </span>
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-emerald-800 shadow-lg">
-              <User className="h-4 w-4 text-emerald-100" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg">
+              <Mic className="h-4 w-4 text-amber-50" />
             </div>
           </div>
           
-          <div className="ml-auto mr-10 max-w-[85%] rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 px-4 py-3 shadow-lg">
+          <div className="ml-auto mr-10 max-w-[85%] rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 px-4 py-3 shadow-lg">
             <p className="text-base leading-relaxed text-white">
               {message}
             </p>

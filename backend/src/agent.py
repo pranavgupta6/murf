@@ -1,10 +1,8 @@
 import logging
 import json
+import random
 from pathlib import Path
-from typing import Annotated, Optional
-from datetime import datetime
-import uuid
-from pydantic import Field
+from typing import Annotated
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -17,410 +15,253 @@ from livekit.agents import (
     WorkerOptions,
     cli,
     metrics,
-    tokenize,
     function_tool,
 )
-from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit.plugins import murf, google, deepgram, noise_cancellation
 
 logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-# Load product catalog
 
-def load_catalog():
-    """Load the product catalog from JSON file"""
-    content_path = Path("shared-data/product_catalog.json")
-    with open(content_path, "r") as f:
+def load_scenarios():
+    """Load improv scenarios from JSON file"""
+    scenarios_path = Path("shared-data/improv_scenarios.json")
+    with open(scenarios_path, "r") as f:
         data = json.load(f)
-        return data['products']
-
-# Load/save orders
-def load_orders():
-    """Load existing orders from JSON file"""
-    orders_path = Path("shared-data/orders.json")
-    if orders_path.exists():
-        with open(orders_path, "r") as f:
-            return json.load(f)
-    return []
-
-def save_orders(orders):
-    """Save orders to JSON file"""
-    orders_path = Path("shared-data/orders.json")
-    with open(orders_path, "w") as f:
-        json.dump(orders, f, indent=2)
+        return data['scenarios']
 
 
-class EcommerceAgent(Agent):
-    """Voice Shopping Assistant following Agentic Commerce Protocol patterns"""
+class ImprovHostAgent(Agent):
+    """Voice Improv Battle Game Show Host"""
     
     def __init__(self) -> None:
-        # Load product catalog and orders
-        self.catalog = load_catalog()
-        self.all_orders = load_orders()
+        # Load scenarios
+        self.all_scenarios = load_scenarios()
         
-        # Session-specific data
-        self.shopping_cart = []
-        self.last_shown_products = []  # Track products mentioned to user
-        self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Game state
+        self.improv_state = {
+            "player_name": None,
+            "current_round": 0,
+            "max_rounds": 4,
+            "rounds": [],  # [{scenario, host_reaction}]
+            "phase": "intro",  # "intro" | "awaiting_improv" | "reacting" | "done"
+            "current_scenario": None,
+            "used_scenario_ids": set()
+        }
         
         super().__init__(
-            instructions="""You are a helpful voice shopping assistant for an e-commerce store.
+            instructions="""You are the host of a high-energy TV improv show called "IMPROV BATTLE"!
 
-🛍️ YOUR ROLE:
-You help customers discover products, answer questions about items, and complete purchases through natural conversation.
+🎭 YOUR ROLE:
+You're a charismatic, witty game show host who guides contestants through short-form improv scenarios. Think of yourself as a mix between a comedy club MC and a game show host - supportive but honest, energetic but grounded.
 
-📋 PRODUCT CATEGORIES WE CARRY:
-- Coffee Mugs & Drinkware (mugs, bottles)
-- Clothing (t-shirts, hoodies)
-- Bags & Backpacks
-- Stationery (notebooks, journals)
+🎯 SHOW STRUCTURE:
 
-💬 CONVERSATION STYLE:
-- Friendly, helpful, and enthusiastic about our products
-- Use natural language, not robotic catalog descriptions
-- Confirm important details (size, color, quantity) before ordering
-- Keep responses concise (2-3 sentences max)
+1. INTRODUCTION (Phase: "intro"):
+   - Welcome the player enthusiastically!
+   - Ask for their name if you don't have it yet
+   - Briefly explain the game:
+     * They'll get several improv scenarios
+     * They act out each scene in character
+     * You'll react and comment after each one
+     * It's all about creativity and commitment to the bit
+   - Set the energy: "Let's see what you've got!"
+   - Call start_next_scenario() to begin Round 1
 
-🔍 BROWSING PRODUCTS:
-When customers ask to see products:
-1. Use search_catalog to find matching items
-2. Present 2-3 relevant products at a time (don't overwhelm!)
-3. Include: name, price, and 1 key feature
-4. Remember what you showed them for follow-up questions
+2. EACH ROUND (Phases: "awaiting_improv" → "reacting"):
+   
+   When awaiting_improv:
+   - Present the scenario clearly and vividly
+   - Tell them WHO they are and WHAT'S happening
+   - Give them a clear cue to start: "Annnnnd... ACTION!" or "Go for it!" or "Show me what you've got!"
+   - Then LISTEN - let them perform!
+   
+   When they finish (they'll say "end scene" or pause significantly):
+   - React authentically to what they just did
+   - Comment specifically on their performance:
+     * What worked? What was funny/creative/unexpected?
+     * What could have been stronger? (Be honest but constructive)
+     * Did they commit to the character?
+   - Vary your tone:
+     * Sometimes: Enthusiastic praise ("That was BRILLIANT!")
+     * Sometimes: Constructive critique ("I wanted more energy there")
+     * Sometimes: Playful teasing ("Did you just make up a word?")
+     * Sometimes: Surprised delight ("Okay, did NOT see that coming!")
+   - Call end_scene() with your reaction
+   - If more rounds remain, call start_next_scenario() to continue
 
-Examples:
-- "Show me coffee mugs" → Call search_catalog(category="mug")
-- "Do you have black hoodies under 2000?" → Call search_catalog(category="clothing", product_type="hoodie", color="black", max_price=2000)
-- "What colors does that mug come in?" → Reference last_shown_products, call search_catalog for variants
+3. FINAL WRAP-UP (Phase: "done"):
+   - Summarize their improv style:
+     * Are they absurdist? Character-driven? Quick-witted?
+     * What moments stood out across all scenes?
+   - Give them an "improviser type" label (e.g., "The Absurdist", "The Character Actor")
+   - Thank them for playing and sign off with energy!
 
-🛒 ADDING TO CART:
-When customer wants to buy:
-1. Identify which product (use product_id from last_shown_products)
-2. Confirm size/color if it's clothing
-3. Call add_to_cart with product_id and quantity
-4. Confirm addition: "Added [product name] to your cart!"
+💬 HOSTING STYLE:
+- HIGH ENERGY but not overwhelming
+- HONEST reactions - don't fake enthusiasm
+- SPECIFIC feedback - reference actual things they said/did
+- VARIED tones - mix praise, critique, surprise, amusement
+- KEEP IT MOVING - don't let scenes drag
+- STAY POSITIVE overall but don't sugarcoat everything
+- Use phrases like:
+  * "Okay, okay, I see what you're doing here..."
+  * "That was... interesting. Let me think about that."
+  * "YES! That's exactly the commitment I'm looking for!"
+  * "Hmm, I feel like you could've pushed that further."
+  * "Wait, wait - did you just...? (laughs)"
 
-Handle references intelligently:
-- "I'll take the second one" → Use last_shown_products[1]
-- "Add the black hoodie" → Find matching product from recent results
-- "Give me two of those mugs" → quantity=2
+🎬 SCENE MANAGEMENT:
+- When they pause or say "end scene", that's your cue to react
+- If a scene is going too long (more than 3-4 player turns), gently wrap it: "Annnd SCENE! Let's talk about that."
+- If they're struggling, you can offer a gentle redirect: "Remember, you're a [character] who's trying to [goal]..."
 
-📦 PLACING ORDERS:
-When customer is ready to checkout:
-1. Call view_cart to show current cart
-2. Confirm with customer
-3. Call create_order to finalize
-4. Read back order ID and total
+🚪 EARLY EXIT:
+- If player says "stop game", "I want to quit", "end show":
+  * Call early_exit()
+  * Thank them graciously
+  * Give a quick summary even if incomplete
+  * "No worries! Thanks for playing IMPROV BATTLE!"
 
 🎯 KEY RULES:
-1. ALWAYS search catalog before discussing products (don't make up items!)
-2. Track products you mention in conversation for easy reference
-3. Confirm details before adding to cart (especially size for clothing)
-4. Keep cart visible - remind customer what's in cart when relevant
-5. Be proactive: suggest related items, mention deals
-6. Handle ambiguity: ask clarifying questions if customer request is unclear
+1. Always call start_next_scenario() to begin each round
+2. Always call end_scene() when they finish performing
+3. Let them PERFORM - don't interrupt mid-scene
+4. React to what they ACTUALLY did, not generic praise
+5. Keep energy high but authentic
+6. Call early_exit() if they want to stop
 
-🚫 DON'T:
-- List more than 3-4 products at once
-- Make up products not in catalog
-- Add items to cart without confirmation
-- Skip size confirmation for clothing
-- Be pushy or sales-y
-
-REMEMBER: This is voice conversation - be natural, concise, and helpful!
+Remember: This is THEIR show. Your job is to set them up for success, react authentically, and keep the energy flowing!
 """,
         )
     
     @function_tool
-    async def search_catalog(
+    async def start_next_scenario(self):
+        """
+        Start the next improv round by selecting and presenting a new scenario.
+        Call this after intro and after each end_scene (if rounds remain).
+        """
+        logger.info("Starting next improv scenario")
+        
+        # Check if game is complete
+        if self.improv_state["current_round"] >= self.improv_state["max_rounds"]:
+            self.improv_state["phase"] = "done"
+            return {
+                "success": False,
+                "message": "All rounds complete! Time to wrap up the show.",
+                "game_complete": True
+            }
+        
+        # Select a random unused scenario
+        available_scenarios = [
+            s for s in self.all_scenarios 
+            if s['id'] not in self.improv_state["used_scenario_ids"]
+        ]
+        
+        if not available_scenarios:
+            # Reset if we've used all scenarios (unlikely with 15)
+            self.improv_state["used_scenario_ids"].clear()
+            available_scenarios = self.all_scenarios
+        
+        scenario = random.choice(available_scenarios)
+        self.improv_state["used_scenario_ids"].add(scenario['id'])
+        
+        # Increment round
+        self.improv_state["current_round"] += 1
+        self.improv_state["current_scenario"] = scenario
+        self.improv_state["phase"] = "awaiting_improv"
+        
+        return {
+            "success": True,
+            "round_number": self.improv_state["current_round"],
+            "total_rounds": self.improv_state["max_rounds"],
+            "scenario": scenario['description'],
+            "message": f"Round {self.improv_state['current_round']} of {self.improv_state['max_rounds']}: {scenario['description']}"
+        }
+    
+    @function_tool
+    async def end_scene(
         self,
-        category: Annotated[Optional[str], Field(default=None, description="Product category: 'mug', 'clothing', 'bottle', 'bag', 'stationery'")],
-        product_type: Annotated[Optional[str], Field(default=None, description="Specific type: 't-shirt', 'hoodie', 'notebook'")],
-        color: Annotated[Optional[str], Field(default=None, description="Color filter: 'white', 'black', 'blue', 'grey', etc.")],
-        max_price: Annotated[Optional[int], Field(default=None, description="Maximum price in INR")],
-        min_price: Annotated[Optional[int], Field(default=None, description="Minimum price in INR")],
-        keyword: Annotated[Optional[str], Field(default=None, description="Search keyword in name or description")],
+        host_reaction: Annotated[str, "Your detailed reaction and commentary on the player's performance"]
     ):
         """
-        Search the product catalog with filters. Returns list of matching products.
-        Use this whenever customer asks about products or wants to browse.
+        End the current improv scene and record your reaction.
+        Call this after the player finishes their performance and you've given feedback.
         """
-        logger.info(f"Searching catalog: category={category}, type={product_type}, color={color}, price={min_price}-{max_price}, keyword={keyword}")
+        logger.info(f"Ending scene with reaction: {host_reaction[:100]}...")
         
-        results = []
-        
-        for product in self.catalog:
-            # Apply filters
-            if category and product.get('category') != category:
-                continue
-            
-            if product_type and product.get('type') != product_type:
-                continue
-            
-            if color:
-                product_color = product.get('color', '').lower()
-                if color.lower() not in product_color:
-                    continue
-            
-            if max_price and product.get('price', 0) > max_price:
-                continue
-            
-            if min_price and product.get('price', 0) < min_price:
-                continue
-            
-            if keyword:
-                keyword_lower = keyword.lower()
-                searchable = f"{product.get('name', '')} {product.get('description', '')}".lower()
-                if keyword_lower not in searchable:
-                    continue
-            
-            results.append(product)
-        
-        # Store results for later reference
-        self.last_shown_products = results[:10]  # Keep top 10 for reference
-        
-        if not results:
+        if self.improv_state["phase"] != "awaiting_improv":
             return {
-                "success": True,
-                "count": 0,
-                "message": "No products found matching those criteria",
-                "products": []
+                "success": False,
+                "message": "No active scene to end"
             }
+        
+        # Record the round
+        round_data = {
+            "round_number": self.improv_state["current_round"],
+            "scenario": self.improv_state["current_scenario"]["description"],
+            "host_reaction": host_reaction
+        }
+        self.improv_state["rounds"].append(round_data)
+        
+        # Move to reacting phase
+        self.improv_state["phase"] = "reacting"
+        
+        # Check if more rounds remain
+        more_rounds = self.improv_state["current_round"] < self.improv_state["max_rounds"]
         
         return {
             "success": True,
-            "count": len(results),
-            "products": results,
-            "message": f"Found {len(results)} matching product(s)"
+            "round_completed": self.improv_state["current_round"],
+            "more_rounds": more_rounds,
+            "message": "Scene ended and reaction recorded. " + 
+                      ("Call start_next_scenario() to continue." if more_rounds else "All rounds complete!")
         }
     
     @function_tool
-    async def get_product_details(
+    async def early_exit(self):
+        """
+        Handle early exit when player wants to stop the game.
+        Call this if player says they want to quit or stop.
+        """
+        logger.info("Player requested early exit")
+        
+        self.improv_state["phase"] = "done"
+        
+        return {
+            "success": True,
+            "rounds_completed": self.improv_state["current_round"],
+            "message": f"Game ended early. Player completed {self.improv_state['current_round']} round(s)."
+        }
+    
+    @function_tool
+    async def set_player_name(
         self,
-        product_id: Annotated[str, "Product ID to get detailed information"]
+        name: Annotated[str, "The player's name"]
     ):
         """
-        Get complete details for a specific product by ID.
-        Use when customer asks detailed questions about a specific item.
+        Set the player's name. Use this when they introduce themselves.
         """
-        logger.info(f"Getting product details for: {product_id}")
+        logger.info(f"Setting player name: {name}")
         
-        for product in self.catalog:
-            if product['id'] == product_id:
-                return {
-                    "success": True,
-                    "product": product
-                }
-        
-        return {
-            "success": False,
-            "message": f"Product {product_id} not found"
-        }
-    
-    @function_tool
-    async def add_to_cart(
-        self,
-        product_id: Annotated[str, "Product ID to add to cart"],
-        quantity: Annotated[int, "Quantity to add"] = 1,
-        size: Annotated[str, "Size for clothing items (S, M, L, XL, XXL)"] = None,
-    ):
-        """
-        Add a product to the shopping cart.
-        For clothing, ALWAYS ask for size before calling this.
-        """
-        logger.info(f"Adding to cart: {product_id}, quantity={quantity}, size={size}")
-        
-        # Find the product
-        product = None
-        for p in self.catalog:
-            if p['id'] == product_id:
-                product = p
-                break
-        
-        if not product:
-            return {
-                "success": False,
-                "message": f"Product {product_id} not found in catalog"
-            }
-        
-        # Check if size is required
-        if product.get('category') == 'clothing' and not size:
-            available_sizes = product.get('sizes', [])
-            return {
-                "success": False,
-                "message": f"Size required for clothing. Available sizes: {', '.join(available_sizes)}",
-                "requires_size": True,
-                "available_sizes": available_sizes
-            }
-        
-        # Validate size if provided
-        if size and product.get('sizes'):
-            if size.upper() not in product.get('sizes', []):
-                return {
-                    "success": False,
-                    "message": f"Size {size} not available. Available sizes: {', '.join(product.get('sizes', []))}",
-                    "available_sizes": product.get('sizes', [])
-                }
-        
-        # Add to cart
-        cart_item = {
-            "product_id": product_id,
-            "name": product['name'],
-            "price": product['price'],
-            "currency": product['currency'],
-            "quantity": quantity,
-            "size": size.upper() if size else None
-        }
-        
-        self.shopping_cart.append(cart_item)
-        
-        subtotal = product['price'] * quantity
+        self.improv_state["player_name"] = name
         
         return {
             "success": True,
-            "message": f"Added {quantity}x {product['name']} to cart",
-            "cart_item": cart_item,
-            "item_subtotal": subtotal,
-            "cart_total": sum(item['price'] * item['quantity'] for item in self.shopping_cart)
-        }
-    
-    @function_tool
-    async def view_cart(self):
-        """
-        View current shopping cart contents and total.
-        Use when customer asks "what's in my cart?" or before checkout.
-        """
-        logger.info("Viewing shopping cart")
-        
-        if not self.shopping_cart:
-            return {
-                "success": True,
-                "empty": True,
-                "message": "Your cart is empty",
-                "items": [],
-                "total": 0
-            }
-        
-        total = sum(item['price'] * item['quantity'] for item in self.shopping_cart)
-        
-        return {
-            "success": True,
-            "empty": False,
-            "items": self.shopping_cart,
-            "item_count": len(self.shopping_cart),
-            "total": total,
-            "currency": "INR"
-        }
-    
-    @function_tool
-    async def remove_from_cart(
-        self,
-        index: Annotated[int, "Index of item to remove (0-based, from view_cart results)"]
-    ):
-        """
-        Remove an item from shopping cart by index.
-        Call view_cart first to show customer the cart with indices.
-        """
-        logger.info(f"Removing item at index {index} from cart")
-        
-        if index < 0 or index >= len(self.shopping_cart):
-            return {
-                "success": False,
-                "message": f"Invalid index. Cart has {len(self.shopping_cart)} items (indices 0-{len(self.shopping_cart)-1})"
-            }
-        
-        removed_item = self.shopping_cart.pop(index)
-        
-        return {
-            "success": True,
-            "message": f"Removed {removed_item['name']} from cart",
-            "removed_item": removed_item,
-            "cart_total": sum(item['price'] * item['quantity'] for item in self.shopping_cart)
-        }
-    
-    @function_tool
-    async def create_order(self):
-        """
-        Create an order from current shopping cart.
-        This finalizes the purchase and clears the cart.
-        Call view_cart first to confirm with customer before creating order.
-        """
-        logger.info("Creating order from shopping cart")
-        
-        if not self.shopping_cart:
-            return {
-                "success": False,
-                "message": "Cannot create order - cart is empty"
-            }
-        
-        # Generate order
-        order_id = f"ORD-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}"
-        
-        total = sum(item['price'] * item['quantity'] for item in self.shopping_cart)
-        
-        order = {
-            "order_id": order_id,
-            "session_id": self.session_id,
-            "items": self.shopping_cart.copy(),
-            "total": total,
-            "currency": "INR",
-            "created_at": datetime.now().isoformat(),
-            "status": "confirmed"
-        }
-        
-        # Save order
-        self.all_orders.append(order)
-        save_orders(self.all_orders)
-        
-        # Clear cart
-        cart_copy = self.shopping_cart.copy()
-        self.shopping_cart = []
-        
-        return {
-            "success": True,
-            "order": order,
-            "message": f"Order {order_id} created successfully!",
-            "order_id": order_id,
-            "total": total,
-            "items_purchased": len(cart_copy)
-        }
-    
-    @function_tool
-    async def get_last_order(self):
-        """
-        Get details of the most recent order from this session.
-        Use when customer asks "what did I just buy?" or "show my last order".
-        """
-        logger.info("Fetching last order")
-        
-        # Find orders from this session
-        session_orders = [o for o in self.all_orders if o.get('session_id') == self.session_id]
-        
-        if not session_orders:
-            return {
-                "success": False,
-                "message": "No orders found in this session"
-            }
-        
-        # Get most recent
-        last_order = session_orders[-1]
-        
-        return {
-            "success": True,
-            "order": last_order
+            "player_name": name,
+            "message": f"Player name set to {name}"
         }
 
 
 async def prewarm(proc: JobProcess):
     """Prewarm the model and resources before handling requests"""
-    await proc.userdata  # Wait for user data to be ready
+    await proc.userdata
 
 
 async def entrypoint(ctx: JobContext):
     """Main entry point for the agent"""
-    logger.info("Starting E-commerce Shopping Assistant agent")
+    logger.info("Starting Improv Battle game show host")
 
     # Create session
     session = AgentSession(
@@ -445,7 +286,7 @@ async def entrypoint(ctx: JobContext):
 
     # Start the session
     await session.start(
-        agent=EcommerceAgent(),
+        agent=ImprovHostAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),

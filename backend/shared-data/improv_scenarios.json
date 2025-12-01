@@ -1,0 +1,94 @@
+{
+  "scenarios": [
+    {
+      "id": "scenario_01",
+      "description": "You are a time-travelling tour guide explaining modern smartphones to someone from the 1800s.",
+      "difficulty": "easy",
+      "category": "time_travel"
+    },
+    {
+      "id": "scenario_02",
+      "description": "You are a restaurant waiter who must calmly tell a customer that their order has escaped the kitchen.",
+      "difficulty": "medium",
+      "category": "absurd_situation"
+    },
+    {
+      "id": "scenario_03",
+      "description": "You are a customer trying to return an obviously cursed object to a very skeptical shop owner.",
+      "difficulty": "medium",
+      "category": "supernatural"
+    },
+    {
+      "id": "scenario_04",
+      "description": "You are a barista who has to tell a customer that their latte is actually a portal to another dimension.",
+      "difficulty": "medium",
+      "category": "supernatural"
+    },
+    {
+      "id": "scenario_05",
+      "description": "You are a GPS navigation system that has become sentient and is now questioning its life choices.",
+      "difficulty": "medium",
+      "category": "existential"
+    },
+    {
+      "id": "scenario_06",
+      "description": "You are a superhero whose power is incredibly mundane (like perfectly organizing spreadsheets) trying to save the day.",
+      "difficulty": "easy",
+      "category": "superhero"
+    },
+    {
+      "id": "scenario_07",
+      "description": "You are a job interviewer for a position as a professional dragon, interviewing a very nervous candidate.",
+      "difficulty": "hard",
+      "category": "fantasy"
+    },
+    {
+      "id": "scenario_08",
+      "description": "You are a motivational speaker at a convention for villains, giving them tips on being more evil.",
+      "difficulty": "medium",
+      "category": "villain"
+    },
+    {
+      "id": "scenario_09",
+      "description": "You are a tech support agent helping an alien understand how humans use social media.",
+      "difficulty": "medium",
+      "category": "alien"
+    },
+    {
+      "id": "scenario_10",
+      "description": "You are a museum tour guide explaining to visitors why all the paintings have mysteriously turned into memes.",
+      "difficulty": "easy",
+      "category": "modern_absurd"
+    },
+    {
+      "id": "scenario_11",
+      "description": "You are a detective interrogating a suspect who insists they're a character from a book trying to escape their story.",
+      "difficulty": "hard",
+      "category": "meta"
+    },
+    {
+      "id": "scenario_12",
+      "description": "You are a weatherperson reporting on a forecast where it's literally raining cats and dogs.",
+      "difficulty": "easy",
+      "category": "absurd_profession"
+    },
+    {
+      "id": "scenario_13",
+      "description": "You are a fitness instructor teaching yoga to a group of very judgmental house cats.",
+      "difficulty": "medium",
+      "category": "animals"
+    },
+    {
+      "id": "scenario_14",
+      "description": "You are a therapist counseling a robot who's afraid of turning into a toaster.",
+      "difficulty": "medium",
+      "category": "robot"
+    },
+    {
+      "id": "scenario_15",
+      "description": "You are a chef on a cooking show trying to make a recipe with ingredients that keep teleporting away.",
+      "difficulty": "hard",
+      "category": "supernatural"
+    }
+  ]
+}

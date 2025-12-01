@@ -1,4 +1,5 @@
 import { Button } from '@/components/livekit/button';
+import { useState } from 'react';
 
 function WelcomeImage() {
   return (
@@ -20,7 +21,7 @@ function WelcomeImage() {
 
 interface WelcomeViewProps {
   startButtonText: string;
-  onStartCall: () => void;
+  onStartCall: (playerName: string) => void;
 }
 
 export const WelcomeView = ({
@@ -28,6 +29,14 @@ export const WelcomeView = ({
   onStartCall,
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
+  const [playerName, setPlayerName] = useState('');
+
+  const handleStart = () => {
+    if (playerName.trim()) {
+      onStartCall(playerName.trim());
+    }
+  };
+
   return (
     <div ref={ref}>
       <section className="bg-background flex flex-col items-center justify-center text-center">
@@ -40,9 +49,26 @@ export const WelcomeView = ({
           Step into the spotlight and improvise your way through wild scenarios!
         </p>
 
-        <Button variant="primary" size="lg" onClick={onStartCall} className="mt-6 w-64 font-mono">
-          Start Improv Battle
-        </Button>
+        <div className="mt-6 w-64 flex flex-col gap-3">
+          <input
+            type="text"
+            placeholder="Enter your name"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleStart()}
+            className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            autoFocus
+          />
+          <Button 
+            variant="primary" 
+            size="lg" 
+            onClick={handleStart} 
+            disabled={!playerName.trim()}
+            className="w-full font-mono disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Start Improv Battle
+          </Button>
+        </div>
       </section>
 
       <div className="fixed bottom-5 left-0 flex w-full items-center justify-center">

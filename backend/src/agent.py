@@ -35,13 +35,13 @@ def load_scenarios():
 class ImprovHostAgent(Agent):
     """Voice Improv Battle Game Show Host"""
     
-    def __init__(self) -> None:
+    def __init__(self, player_name=None) -> None:
         # Load scenarios
         self.all_scenarios = load_scenarios()
         
         # Game state
         self.improv_state = {
-            "player_name": None,
+            "player_name": player_name,
             "current_round": 0,
             "max_rounds": 4,
             "rounds": [],  # [{scenario, host_reaction}]
@@ -50,17 +50,35 @@ class ImprovHostAgent(Agent):
             "used_scenario_ids": set()
         }
         
+        # Build instructions with player name if available
+        name_instruction = ""
+        if player_name:
+            name_instruction = f"""
+⚠️ CRITICAL - PLAYER NAME:
+The player's name is: {player_name}
+Greet them by name immediately! Say "Welcome to IMPROV BATTLE, {player_name}!"
+DO NOT ask for their name - you already have it!
+"""
+        else:
+            name_instruction = """
+⚠️ CRITICAL - PLAYER NAME HANDLING:
+The player has NOT provided their name yet.
+Ask them "What's your name?" and wait for their response, then call set_player_name()
+"""
+        
         super().__init__(
-            instructions="""You are the host of a high-energy TV improv show called "IMPROV BATTLE"!
+            instructions=f"""You are the host of a high-energy TV improv show called "IMPROV BATTLE"!
 
 🎭 YOUR ROLE:
 You're a charismatic, witty game show host who guides contestants through short-form improv scenarios. Think of yourself as a mix between a comedy club MC and a game show host - supportive but honest, energetic but grounded.
+
+{name_instruction}
 
 🎯 SHOW STRUCTURE:
 
 1. INTRODUCTION (Phase: "intro"):
    - Welcome the player enthusiastically!
-   - Ask for their name if you don't have it yet
+   - Use their name if you have it, otherwise ask for it first
    - Briefly explain the game:
      * They'll get several improv scenarios
      * They act out each scene in character
@@ -262,6 +280,38 @@ async def prewarm(proc: JobProcess):
 async def entrypoint(ctx: JobContext):
     """Main entry point for the agent"""
     logger.info("Starting Improv Battle game show host")
+    
+    # Join the room and connect to the user
+    await ctx.connect()
+    
+    # Wait a moment for participant metadata to be available
+    import asyncio
+    await asyncio.sleep(0.5)
+    
+    # Check if player name is in participant metadata
+    player_name = None
+    try:
+        # Get the first remote participant (the user)
+        participants = list(ctx.room.remote_participants.values())
+        if participants:
+            participant = participants[0]
+            logger.info(f"Participant metadata: {participant.metadata}")
+            if participant.metadata:
+                metadata = json.loads(participant.metadata)
+                if "playerName" in metadata:
+                    player_name = metadata["playerName"]
+                    logger.info(f"Found player name in metadata: {player_name}")
+                else:
+                    logger.warning("playerName not found in metadata")
+            else:
+                logger.warning("Participant has no metadata")
+        else:
+            logger.warning("No remote participants found")
+    except Exception as e:
+        logger.warning(f"Could not extract player name from metadata: {e}")
+
+    # Create the agent with player name if available
+    agent_instance = ImprovHostAgent(player_name=player_name)
 
     # Create session
     session = AgentSession(
@@ -286,15 +336,12 @@ async def entrypoint(ctx: JobContext):
 
     # Start the session
     await session.start(
-        agent=ImprovHostAgent(),
+        agent=agent_instance,
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),
         ),
     )
-
-    # Join the room and connect to the user
-    await ctx.connect()
 
 
 if __name__ == "__main__":

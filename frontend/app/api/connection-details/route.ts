@@ -32,14 +32,20 @@ export async function POST(req: Request) {
     // Parse agent configuration from request body
     const body = await req.json();
     const agentName: string = body?.room_config?.agents?.[0]?.agent_name;
+    const playerName: string = body?.player_name;
+
+    console.log('Received player name:', playerName);
 
     // Generate participant token
-    const participantName = 'user';
+    const participantName = playerName || 'user';
     const participantIdentity = `voice_assistant_user_${Math.floor(Math.random() * 10_000)}`;
     const roomName = `voice_assistant_room_${Math.floor(Math.random() * 10_000)}`;
 
+    const metadata = playerName ? JSON.stringify({ playerName }) : undefined;
+    console.log('Setting metadata:', metadata);
+
     const participantToken = await createParticipantToken(
-      { identity: participantIdentity, name: participantName },
+      { identity: participantIdentity, name: participantName, metadata },
       roomName,
       agentName
     );

@@ -43,6 +43,10 @@ export function ViewController() {
     }
   };
 
+  const handleStartCall = (playerName: string) => {
+    startSession(playerName);
+  };
+
   return (
     <AnimatePresence mode="wait">
       {/* Welcome screen */}
@@ -51,7 +55,7 @@ export function ViewController() {
           key="welcome"
           {...VIEW_MOTION_PROPS}
           startButtonText={appConfig.startButtonText}
-          onStartCall={startSession}
+          onStartCall={handleStartCall}
         />
       )}
       {/* Session view */}
